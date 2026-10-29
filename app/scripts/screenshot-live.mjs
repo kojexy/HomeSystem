@@ -24,8 +24,10 @@ for (const tab of ["Home", "Rooms", "Cameras", "Devices", "Automations"]) {
 
 // "Go live" on the RTSP test camera: the video must really play.
 if (process.env.HA_STREAM_CAMERA) {
+  const state = await (await fetch(`${HA_URL}/api/states/${process.env.HA_STREAM_CAMERA}`, { headers: { Authorization: `Bearer ${HA_TOKEN}` } })).json();
+  const camName = state.attributes.friendly_name;
   await page.locator("nav.tabs button", { hasText: "Cameras" }).click();
-  const card = page.locator(".card.camera").filter({ hasText: "Go live" }).first();
+  const card = page.locator(".card.camera").filter({ has: page.locator(".cam-name", { hasText: camName }) }).first();
   await card.getByRole("button", { name: "Go live" }).click();
   const video = card.locator("video");
   await video.waitFor({ timeout: 20000 });
