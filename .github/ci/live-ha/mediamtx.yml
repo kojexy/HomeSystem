@@ -1,0 +1,9 @@
+# A pretend IP camera for the live test: an RTSP stream with a moving test picture,
+# like the one a Tapo camera sends (rtsp://<camera-ip>:554/stream1).
+paths:
+  test:
+    runOnInit: >
+      ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=10 -pix_fmt yuv420p
+      -c:v libx264 -preset ultrafast -tune zerolatency -g 20
+      -f rtsp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnInitRestart: yes

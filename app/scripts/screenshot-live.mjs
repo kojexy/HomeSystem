@@ -5,7 +5,8 @@ import { chromium } from "playwright";
 const { APP_URL, HA_URL, HA_TOKEN, OUT = "screenshots" } = process.env;
 const settings = { mode: "live", hassUrl: HA_URL, token: HA_TOKEN, go2rtcUrl: "" };
 
-const browser = await chromium.launch();
+// Google Chrome (not plain Chromium) so H.264 camera video can play.
+const browser = await chromium.launch({ channel: "chrome" });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
@@ -19,6 +20,19 @@ for (const tab of ["Home", "Rooms", "Cameras", "Devices", "Automations"]) {
   await page.locator("nav.tabs button", { hasText: tab }).click();
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${OUT}/${tab.toLowerCase()}.png`, fullPage: true });
+}
+
+// "Go live" on the RTSP test camera: the video must really play.
+if (process.env.HA_STREAM_CAMERA) {
+  await page.locator("nav.tabs button", { hasText: "Cameras" }).click();
+  const card = page.locator(".card.camera").filter({ hasText: "Go live" }).first();
+  await card.getByRole("button", { name: "Go live" }).click();
+  const video = card.locator("video");
+  await video.waitFor({ timeout: 20000 });
+  await page.waitForFunction((v) => v.currentTime > 1 && v.readyState >= 2, await video.elementHandle(), { timeout: 45000 });
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/live-video.png` });
+  console.log("Live video plays in the app.");
 }
 
 const width = await page.evaluate(() => document.documentElement.scrollWidth);

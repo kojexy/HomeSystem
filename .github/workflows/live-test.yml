@@ -19,11 +19,13 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
 
-      - name: Start Home Assistant
+      - name: Start a pretend camera and Home Assistant
         run: |
+          docker run -d --name camera --network host \
+            -v $PWD/.github/ci/live-ha/mediamtx.yml:/mediamtx.yml:ro bluenviron/mediamtx:1.21.2-ffmpeg
           image=$(grep -oE 'ghcr.io/home-assistant/home-assistant:[^ ]+' server/docker-compose.yml)
           mkdir -p /tmp/ha && cp .github/ci/live-ha/configuration.yaml /tmp/ha/
-          docker run -d --name ha -p 8123:8123 -v /tmp/ha:/config "$image"
+          docker run -d --name ha --network host -v /tmp/ha:/config "$image"
           for i in $(seq 1 90); do curl -sf http://localhost:8123/api/onboarding >/dev/null && break; sleep 2; done
           curl -sf http://localhost:8123/api/onboarding
 
@@ -45,6 +47,21 @@ jobs:
           done
           echo "Home Assistant has $n entities"
 
+      - name: Add the camera the way a user does (Generic Camera, RTSP)
+        run: |
+          api() { curl -sf -X POST "http://localhost:8123/api/config/config_entries/$1" \
+            -H "Authorization: Bearer $HA_TOKEN" -H 'Content-Type: application/json' -d "$2"; }
+          flow=$(api flow '{"handler":"generic","show_advanced_options":false}' | jq -r .flow_id)
+          api "flow/$flow" '{"stream_source":"rtsp://127.0.0.1:8554/test","advanced":{"framerate":2,"verify_ssl":false,"rtsp_transport":"tcp","authentication":"basic"}}' | jq -c '{step_id, errors}'
+          api "flow/$flow" '{"confirmed_ok":true}' | jq -c '{type, title}'
+          for i in $(seq 1 30); do
+            cam=$(curl -sf -H "Authorization: Bearer $HA_TOKEN" http://localhost:8123/api/states \
+              | jq -r '[.[] | select(.entity_id | startswith("camera.")) | select(.entity_id != "camera.demo_camera")][0].entity_id // empty')
+            [ -n "$cam" ] && break; sleep 2
+          done
+          echo "Camera added: $cam"
+          echo "HA_STREAM_CAMERA=$cam" >> "$GITHUB_ENV"
+
       - name: Live tests
         working-directory: app
         run: |
@@ -57,7 +74,7 @@ jobs:
           npm run build
           npx vite preview --port 4173 --strictPort &
           npm install --no-save playwright@1.64.1
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chrome
           for i in $(seq 1 30); do curl -sf http://localhost:4173 >/dev/null && break; sleep 1; done
           mkdir -p screenshots
           APP_URL=http://localhost:4173 OUT=screenshots node scripts/screenshot-live.mjs
@@ -71,4 +88,6 @@ jobs:
 
       - name: Home Assistant log (on failure)
         if: failure()
-        run: docker logs ha 2>&1 | tail -80
+        run: |
+          docker logs ha 2>&1 | tail -80
+          docker logs camera 2>&1 | tail -20

@@ -1,4 +1,4 @@
-import type { Settings } from "../ha/types";
+import type { Entity, Settings } from "../ha/types";
 import { objectId } from "./domains";
 
 const KEY = "homesystem.settings";
@@ -36,4 +36,14 @@ export function liveStreamUrl(s: Settings, cameraId: string): string | null {
   if (s.mode !== "live" || !s.go2rtcUrl) return null;
   const base = s.go2rtcUrl.replace(/\/+$/, "");
   return `${base}/stream.html?src=${encodeURIComponent(objectId(cameraId))}&mode=webrtc,mse`;
+}
+
+/** HA camera feature flag: the camera can stream video (CameraEntityFeature.STREAM). */
+const CAMERA_STREAM = 2;
+
+/** Whether "Go live" can work: through go2rtc, or through Home Assistant's own stream. */
+export function canGoLive(s: Settings, camera: Entity): boolean {
+  if (s.mode !== "live") return false;
+  if (s.go2rtcUrl) return true;
+  return ((Number(camera.attributes.supported_features) || 0) & CAMERA_STREAM) !== 0;
 }

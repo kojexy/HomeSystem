@@ -7,6 +7,7 @@ import {
   type Connection,
 } from "home-assistant-js-websocket";
 import { toCamEvents, type FrigateEvent } from "../lib/events";
+import { liveStreamUrl } from "../lib/settings";
 import type { ConnectionStatus, Entities, Entity, HomeBackend, Rooms, Settings } from "./types";
 
 /** The Frigate integration's instance id: its MQTT client id, "frigate" unless changed. */
@@ -100,6 +101,19 @@ export function createHassBackend(settings: Settings): HomeBackend {
       // entity_picture already carries a short-lived access token from HA.
       const pic = camera.attributes.entity_picture;
       return pic ? `${base}${pic}&t=${Date.now()}` : null;
+    },
+
+    async liveStream(camera) {
+      // go2rtc (Frigate) is fastest. Without it, Home Assistant streams the camera itself (HLS).
+      const viaGo2rtc = liveStreamUrl(settings, camera.entity_id);
+      if (viaGo2rtc) return { kind: "iframe", url: viaGo2rtc };
+      if (!conn) return null;
+      try {
+        const r = await conn.sendMessagePromise<{ url: string }>({ type: "camera/stream", entity_id: camera.entity_id, format: "hls" });
+        return { kind: "hls", url: base + r.url };
+      } catch {
+        return null; // this camera has no stream (stills only)
+      }
     },
 
     async events(limit) {

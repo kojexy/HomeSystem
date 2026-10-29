@@ -51,9 +51,9 @@ export function SettingsPanel({ settings, onSave, onClose }: Props) {
               <small>HA → your profile → Security → Long-lived access tokens.</small>
             </label>
             <label>
-              go2rtc address (optional, for live video)
+              go2rtc / Frigate address (optional, faster live video)
               <input className="field" placeholder="http://192.168.1.20:1984" value={draft.go2rtcUrl} onChange={set("go2rtcUrl")} />
-              <small>Name each stream like its camera: camera.front_door → front_door.</small>
+              <small>Leave empty to get live video from Home Assistant (a few seconds behind). With Frigate: its address, port 1984.</small>
             </label>
           </>
         )}

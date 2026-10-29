@@ -48,6 +48,9 @@ export interface ServiceCall {
   data: Record<string, unknown>;
 }
 
+/** Live video: go2rtc's own player page, or an HLS stream from Home Assistant. */
+export type LiveStream = { kind: "iframe"; url: string } | { kind: "hls"; url: string };
+
 /** Something a camera's AI (Frigate) noticed: a person, a car, an animal. */
 export interface CamEvent {
   id: string;
@@ -79,6 +82,8 @@ export interface HomeBackend {
   callService(domain: string, service: string, data: Record<string, unknown>): Promise<void>;
   /** A URL for the current still frame of a camera, or null. */
   snapshotUrl(camera: Entity): string | null;
+  /** Live video for a camera, or null when it has none. */
+  liveStream(camera: Entity): Promise<LiveStream | null>;
   /** Latest camera AI events, newest first, or null when there is no Frigate. */
   events(limit: number): Promise<CamEvent[] | null>;
   close(): void;

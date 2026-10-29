@@ -81,7 +81,8 @@ export function App() {
 
   const snapshotUrl = useCallback((c: Entity) => backend.snapshotUrl(c), [backend]);
   const events = useCallback((limit: number) => backend.events(limit), [backend]);
-  const ctx: HomeCtx = { entities, rooms, settings, run, snapshotUrl, events, notify: setNotice };
+  const liveStream = useCallback((c: Entity) => backend.liveStream(c), [backend]);
+  const ctx: HomeCtx = { entities, rooms, settings, run, snapshotUrl, events, liveStream, notify: setNotice };
   const alerts = insights(entities).filter((i) => i.level !== "info").length;
   const View = TABS.find((t) => t.id === tab)!.View;
   const message = error ?? notice;

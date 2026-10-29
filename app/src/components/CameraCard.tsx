@@ -1,17 +1,19 @@
-import { useEffect, useRef, useState } from "react";
-import type { Entity } from "../ha/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Entity, LiveStream } from "../ha/types";
 import { name } from "../lib/home";
-import { liveStreamUrl } from "../lib/settings";
+import { canGoLive } from "../lib/settings";
 import type { HomeCtx } from "../ui";
+import { HlsVideo } from "./HlsVideo";
 import { Icon } from "./Icon";
 
 const SNAPSHOT_EVERY_MS = 2000;
 
 export function CameraCard({ camera, ctx }: { camera: Entity | null; ctx: HomeCtx }) {
   const [live, setLive] = useState(false);
+  const [stream, setStream] = useState<LiveStream | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
-  const liveUrl = camera ? liveStreamUrl(ctx.settings, camera.entity_id) : null;
+  const liveable = camera ? canGoLive(ctx.settings, camera) : false;
 
   // HA rotates the token inside entity_picture, so always read the newest entity.
   const latest = useRef(camera);
@@ -29,13 +31,34 @@ export function CameraCard({ camera, ctx }: { camera: Entity | null; ctx: HomeCt
   }, [cameraId, live, snapshotUrl]);
 
   const title = camera ? name(camera) : "Camera";
+  const { liveStream, notify } = ctx;
+
+  const stopLive = useCallback(() => {
+    setLive(false);
+    setStream(null);
+  }, []);
+  const failLive = useCallback(() => {
+    stopLive();
+    notify("Live video stopped. Showing still pictures.");
+  }, [stopLive, notify]);
+
+  const toggleLive = async () => {
+    if (live || !camera) return stopLive();
+    setLive(true);
+    const s = await liveStream(camera);
+    if (s) setStream(s);
+    else failLive();
+  };
+
   const fullscreen = () => frameRef.current?.requestFullscreen?.().catch(() => {});
 
   return (
     <section className="card camera">
       <div className="frame" ref={frameRef}>
-        {live && liveUrl ? (
-          <iframe src={liveUrl} title={`${title} live`} allow="autoplay; fullscreen" />
+        {live && stream?.kind === "iframe" ? (
+          <iframe src={stream.url} title={`${title} live`} allow="autoplay; fullscreen" />
+        ) : live && stream?.kind === "hls" ? (
+          <HlsVideo url={stream.url} title={`${title} live`} onFail={failLive} />
         ) : src ? (
           <img src={src} alt={`${title} camera`} />
         ) : (
@@ -50,8 +73,8 @@ export function CameraCard({ camera, ctx }: { camera: Entity | null; ctx: HomeCt
             {title}
           </span>
           <span className="cam-actions">
-            {liveUrl && (
-              <button className="glass-btn" onClick={() => setLive((v) => !v)} aria-pressed={live}>
+            {liveable && (
+              <button className="glass-btn" onClick={toggleLive} aria-pressed={live}>
                 {live ? "Live" : "Go live"}
               </button>
             )}

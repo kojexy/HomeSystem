@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { applyService, demoEntities, demoRooms } from "../ha/demo";
-import type { Entities } from "../ha/types";
+import type { Entities, Entity } from "../ha/types";
 import { isDevice, primaryAction, stateText } from "./domains";
 import { groupByRoom, insights, planMode, summarize, topConsumers } from "./home";
-import { liveStreamUrl } from "./settings";
+import { canGoLive, liveStreamUrl } from "./settings";
 
 const set = (s: Entities, id: string, state: string, attrs = {}): Entities => ({
   ...s,
@@ -159,5 +159,17 @@ describe("live video", () => {
     const s = { mode: "live" as const, hassUrl: "", token: "", go2rtcUrl: "http://10.0.0.2:1984/" };
     expect(liveStreamUrl(s, "camera.front_door")).toBe("http://10.0.0.2:1984/stream.html?src=front_door&mode=webrtc,mse");
     expect(liveStreamUrl({ ...s, mode: "demo" }, "camera.front_door")).toBeNull();
+  });
+});
+
+describe("live video", () => {
+  const cam = (features: number): Entity => ({ entity_id: "camera.yard", state: "idle", attributes: { supported_features: features }, last_changed: "" });
+  const live = { mode: "live" as const, hassUrl: "http://ha:8123", token: "t", go2rtcUrl: "" };
+
+  it("uses Home Assistant's own stream when there is no go2rtc", () => {
+    expect(canGoLive(live, cam(2))).toBe(true);
+    expect(canGoLive(live, cam(0))).toBe(false); // stills-only camera
+    expect(canGoLive({ ...live, go2rtcUrl: "http://ha:1984" }, cam(0))).toBe(true);
+    expect(canGoLive({ ...live, mode: "demo" }, cam(2))).toBe(false);
   });
 });

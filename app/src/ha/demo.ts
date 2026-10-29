@@ -245,6 +245,10 @@ export function createDemoBackend(): HomeBackend {
       return demoCameraFrame(camera);
     },
 
+    async liveStream() {
+      return null;
+    },
+
     async events(limit) {
       return events.slice(0, limit);
     },

@@ -10,6 +10,8 @@ import { alarmOf, groupByRoom, insights, ofDomain, planMode, summarize } from ".
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const HA_URL = env.HA_URL ?? "";
 const HA_TOKEN = env.HA_TOKEN ?? "";
+/** A camera with real video (CI adds an RTSP test camera, like a Tapo). */
+const HA_STREAM_CAMERA = env.HA_STREAM_CAMERA ?? "";
 
 /** Waits until check() passes, or fails with the last error. */
 async function until<T>(check: () => T | undefined | null | false, ms = 15000): Promise<T> {
@@ -106,6 +108,9 @@ describe.skipIf(!HA_URL || !HA_TOKEN)("live Home Assistant", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toMatch(/^image\//);
 
+    // The demo camera has stills only: no live stream, and the app says so instead of failing.
+    expect(await second.backend.liveStream(camera)).toBeNull();
+
     // No Frigate here: the events feed says so instead of failing.
     expect(await second.backend.events(10)).toBeNull();
 
@@ -120,5 +125,30 @@ describe.skipIf(!HA_URL || !HA_TOKEN)("live Home Assistant", () => {
     expect(Array.isArray(insights(second.live.entities))).toBe(true);
 
     second.close();
+  }, 60000);
+
+  it.skipIf(!HA_STREAM_CAMERA)("plays live video from an RTSP camera through Home Assistant", async () => {
+    const { backend, live, close } = connect();
+    await until(() => live.status === "online" && live.entities[HA_STREAM_CAMERA]);
+    const camera = live.entities[HA_STREAM_CAMERA];
+
+    // Still pictures, like the camera card shows every 2 s.
+    const still = await fetch(backend.snapshotUrl(camera)!);
+    expect(still.status).toBe(200);
+
+    // "Go live": Home Assistant hands out an HLS stream; real video segments must arrive.
+    const stream = await backend.liveStream(camera);
+    expect(stream?.kind).toBe("hls");
+    const master = await (await fetch(stream!.url)).text();
+    expect(master).toContain("#EXTM3U");
+    const variant = new URL(master.split("\n").find((l) => l && !l.startsWith("#"))!, stream!.url).href;
+    let playlist = "";
+    const end = Date.now() + 30000;
+    while (!playlist.includes("#EXTINF") && Date.now() < end) {
+      playlist = await (await fetch(variant)).text();
+      if (!playlist.includes("#EXTINF")) await new Promise((r) => setTimeout(r, 1000));
+    }
+    expect(playlist).toContain("#EXTINF");
+    close();
   }, 60000);
 });
