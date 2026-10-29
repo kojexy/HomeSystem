@@ -51,14 +51,17 @@ jobs:
         run: |
           api() { curl -sf -X POST "http://localhost:8123/api/config/config_entries/$1" \
             -H "Authorization: Bearer $HA_TOKEN" -H 'Content-Type: application/json' -d "$2"; }
+          cameras() { curl -sf -H "Authorization: Bearer $HA_TOKEN" http://localhost:8123/api/states \
+            | jq -r '.[] | select(.entity_id | startswith("camera.")) | .entity_id' | sort; }
+          cameras > /tmp/cams-before
           flow=$(api flow '{"handler":"generic","show_advanced_options":false}' | jq -r .flow_id)
           api "flow/$flow" '{"stream_source":"rtsp://127.0.0.1:8554/test","advanced":{"framerate":2,"verify_ssl":false,"rtsp_transport":"tcp","authentication":"basic"}}' | jq -c '{step_id, errors}'
           api "flow/$flow" '{"confirmed_ok":true}' | jq -c '{type, title}'
           for i in $(seq 1 30); do
-            cam=$(curl -sf -H "Authorization: Bearer $HA_TOKEN" http://localhost:8123/api/states \
-              | jq -r '[.[] | select(.entity_id | startswith("camera.")) | select(.entity_id != "camera.demo_camera")][0].entity_id // empty')
+            cam=$(cameras | comm -13 /tmp/cams-before - | head -1)
             [ -n "$cam" ] && break; sleep 2
           done
+          test -n "$cam"
           echo "Camera added: $cam"
           echo "HA_STREAM_CAMERA=$cam" >> "$GITHUB_ENV"
 

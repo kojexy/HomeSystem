@@ -35,7 +35,7 @@ On the phone, open `http://<mac-ip>:5173` on the same Wi-Fi.
 |---|---|
 | **Home** | What the cameras noticed today · status chips (alarm, lights, doors, temperature, power) · one-tap modes **Leave home / Good night / I'm home** · **Needs attention** with one-tap fixes · main camera · alarm · what is on now · biggest power users |
 | **Rooms** | Every device grouped by its Home Assistant area, with room temperature and "Lights off" per room |
-| **Cameras** | All cameras; still frames every 2 s, **Go live**, full screen · **AI events**: who and what the cameras saw, with photos, clips and an AI sentence |
+| **Cameras** | All cameras; still frames every 2 s, **Go live** (through Home Assistant, or faster with Frigate), full screen · **AI events**: who and what the cameras saw, with photos, clips and an AI sentence |
 | **Devices** | Search and filter all devices by type |
 | **Automations** | Turn automations on/off, run them now, start scenes and scripts |
 
@@ -57,6 +57,7 @@ The full step-by-step guide is in [docs/SETUP.md](docs/SETUP.md).
 
 ## Docs
 
+- **[Quick start](docs/QUICKSTART.md) — computer + phone + one camera, on your normal Wi-Fi. Start here.**
 - [What to buy](docs/HARDWARE.md) — server, 4 cameras, Zigbee sensors, plugs, lights, siren, UPS
 - [Setup guide](docs/SETUP.md) — 12 steps, from installing Home Assistant to access away from home
 - [Best practices](docs/BEST_PRACTICES.md) · [Research](docs/RESEARCH.md)

@@ -108,8 +108,10 @@ describe.skipIf(!HA_URL || !HA_TOKEN)("live Home Assistant", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toMatch(/^image\//);
 
-    // The demo camera has stills only: no live stream, and the app says so instead of failing.
-    expect(await second.backend.liveStream(camera)).toBeNull();
+    // A stills-only camera has no live stream; the app says so instead of failing.
+    const stillsOnly = ofDomain(second.live.entities, "camera").find((c) => !((Number(c.attributes.supported_features) || 0) & 2));
+    expect(stillsOnly).toBeTruthy();
+    expect(await second.backend.liveStream(stillsOnly!)).toBeNull();
 
     // No Frigate here: the events feed says so instead of failing.
     expect(await second.backend.events(10)).toBeNull();
