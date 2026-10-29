@@ -1,5 +1,7 @@
 // The small slice of Home Assistant's data model this app uses.
 
+import type { HaAutomation } from "../lib/rules";
+
 export interface Entity {
   entity_id: string;
   state: string;
@@ -86,5 +88,12 @@ export interface HomeBackend {
   liveStream(camera: Entity): Promise<LiveStream | null>;
   /** Latest camera AI events, newest first, or null when there is no Frigate. */
   events(limit: number): Promise<CamEvent[] | null>;
+  /** An automation's config by its config id, or null when it isn't stored in automations.yaml (e.g. a YAML package). */
+  automation(id: string): Promise<HaAutomation | null>;
+  /** Creates or replaces an automation. HA reloads it straight away. Needs an admin account. */
+  saveAutomation(config: HaAutomation): Promise<void>;
+  deleteAutomation(id: string): Promise<void>;
+  /** Phone alert services, e.g. notify.mobile_app_annas_phone. */
+  notifyServices(): Promise<string[]>;
   close(): void;
 }

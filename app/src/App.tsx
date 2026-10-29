@@ -1,13 +1,14 @@
 import { App as CapApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "./components/Icon";
 import { SettingsPanel } from "./components/SettingsPanel";
 import type { Entity, Settings } from "./ha/types";
 import { useHome } from "./ha/useHome";
 import { greeting, insights } from "./lib/home";
+import { fromHa, toHa } from "./lib/rules";
 import { loadSettings, saveSettings } from "./lib/settings";
-import type { HomeCtx } from "./ui";
+import type { AutomationStore, HomeCtx } from "./ui";
 import { AutomationsView } from "./views/AutomationsView";
 import { CamerasView } from "./views/CamerasView";
 import { DevicesView } from "./views/DevicesView";
@@ -82,7 +83,19 @@ export function App() {
   const snapshotUrl = useCallback((c: Entity) => backend.snapshotUrl(c), [backend]);
   const events = useCallback((limit: number) => backend.events(limit), [backend]);
   const liveStream = useCallback((c: Entity) => backend.liveStream(c), [backend]);
-  const ctx: HomeCtx = { entities, rooms, settings, run, snapshotUrl, events, liveStream, notify: setNotice };
+  const automations: AutomationStore = useMemo(
+    () => ({
+      load: async (id) => {
+        const config = await backend.automation(id);
+        return config && { config, rule: fromHa(config) };
+      },
+      save: (rule) => backend.saveAutomation(toHa(rule)),
+      remove: (id) => backend.deleteAutomation(id),
+      notifyServices: () => backend.notifyServices(),
+    }),
+    [backend]
+  );
+  const ctx: HomeCtx = { entities, rooms, settings, run, snapshotUrl, events, liveStream, notify: setNotice, automations };
   const alerts = insights(entities).filter((i) => i.level !== "info").length;
   const View = TABS.find((t) => t.id === tab)!.View;
   const message = error ?? notice;

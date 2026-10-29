@@ -35,6 +35,16 @@ for (const tab of ["Home", "Rooms", "Cameras", "Devices", "Automations"]) {
   await page.screenshot({ path: `${OUT}/${tab.toLowerCase()}.png`, fullPage: true });
 }
 
+// The automation editor, filled with this home's real devices.
+await page.locator(".card-head button", { hasText: "New" }).click();
+await page.locator(".block.when .add-btn").click();
+await page.locator(".block.when .add-menu .chip", { hasText: "Device" }).click();
+await page.locator(".block.then .add-btn").click();
+await page.locator(".block.then .add-menu .chip", { hasText: "Device or scene" }).click();
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/automation-editor.png` });
+await page.getByRole("button", { name: "Close" }).click();
+
 // "Go live" on the RTSP test camera: the video must really play.
 if (process.env.HA_STREAM_CAMERA) {
   const state = await (await fetch(`${HA_URL}/api/states/${process.env.HA_STREAM_CAMERA}`, { headers: { Authorization: `Bearer ${HA_TOKEN}` } })).json();

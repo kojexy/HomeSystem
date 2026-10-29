@@ -355,3 +355,69 @@ button.tile-main:active { transform: scale(0.97); }
 .event-desc.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .event-media { padding: 0 8px 10px; }
 .event-media img, .event-media video { display: block; width: 100%; border-radius: 14px; background: #000; aspect-ratio: 16 / 9; object-fit: cover; }
+
+/* ---------- Automation editor: When → Only if → Then ---------- */
+
+.pill { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.pill.danger { background: var(--danger); color: #fff; border-color: transparent; font-weight: 600; }
+.icon-btn.small { width: 38px; height: 38px; flex: 0 0 auto; }
+.bad-text { margin: 0; font-size: 14px; color: #ffb3b3; }
+
+.sheet.editor { width: min(680px, 100%); max-height: 92vh; display: flex; flex-direction: column; gap: 0; padding: 0; }
+.editor-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.editor-head h2 { flex: 1; margin: 0; font-size: 17px; }
+.editor-body { overflow-y: auto; overscroll-behavior: contain; padding: 16px; display: grid; gap: 14px; }
+.editor-foot {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 12px 16px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
+}
+.name-field { font-size: 17px; font-weight: 600; }
+
+.block {
+  --tone: var(--accent);
+  padding: 14px; border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tone) 7%, transparent), rgba(255, 255, 255, 0.02));
+  border: 1px solid color-mix(in srgb, var(--tone) 22%, transparent);
+}
+.block.when { --tone: #22f2ff; }
+.block.if { --tone: #8b7cff; }
+.block.then { --tone: #ff5ad9; }
+.block h3 { margin: 0 0 10px; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; letter-spacing: 0.2px; }
+.block h3 .muted { margin-left: auto; font-weight: 400; }
+.block-icon {
+  width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center;
+  color: var(--tone); background: color-mix(in srgb, var(--tone) 16%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--tone) 30%, transparent);
+}
+.block-rows { display: grid; gap: 8px; }
+.rule-row { display: flex; gap: 8px; align-items: center; padding: 8px; border-radius: 14px; background: rgba(0, 0, 0, 0.25); }
+.rule-fields { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rule-fields .field { width: auto; flex: 1 1 150px; min-width: 0; padding: 10px 12px; }
+.rule-fields .field.num { flex: 0 0 88px; }
+.rule-fields .field.grow { flex: 2 1 200px; }
+.rule-fields input[type="time"] { flex: 0 0 auto; }
+.lead { font-size: 14px; color: var(--muted); }
+.with-unit { display: inline-flex; align-items: center; gap: 6px; }
+
+select.field {
+  appearance: none; -webkit-appearance: none; padding-right: 34px; cursor: pointer;
+  background: rgba(0, 0, 0, 0.25) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b9cae' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+}
+select.field option, select.field optgroup { background: #111923; color: var(--text); }
+input[type="time"].field { color-scheme: dark; }
+
+.add-btn {
+  justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; font-size: 14px;
+  color: var(--tone); border: 1px dashed color-mix(in srgb, var(--tone) 50%, transparent);
+}
+.add-btn:hover { background: color-mix(in srgb, var(--tone) 10%, transparent); }
+.add-menu { display: flex; flex-wrap: wrap; gap: 8px; }
+.add-menu .chip svg { color: var(--tone); }
+.add-menu .chip.ghost { background: transparent; }
+
+.days { display: flex; flex-wrap: wrap; gap: 6px; }
+.day { width: 40px; height: 40px; border-radius: 50%; font-size: 13px; font-weight: 600; background: var(--glass-2); border: 1px solid var(--line); }
+.day.on { background: var(--tone); color: #070a16; border-color: transparent; box-shadow: 0 0 12px color-mix(in srgb, var(--tone) 45%, transparent); }
+
+.mode.idea { max-width: 220px; }
+.mode.idea span { font-weight: 500; }

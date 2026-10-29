@@ -42,7 +42,11 @@ They still use Xiaomi's cloud; replace them with local devices one by one later.
 ## 5. Phone alerts and automations
 
 Install the **Home Assistant Companion** app on the same phone and sign in. It sends the alerts.
-Then add the ready-made automations: [setup guide, step 9](SETUP.md#9-ready-made-automations).
+Make your own automations right in the app: **Automations → New** — "When … (only if …) then …", like Mi Home.
+For example: *When* the hallway sensor sees motion, *only* between 18:00 and 07:00, *then* turn on the light, wait 2 min, turn it off.
+They run inside Home Assistant, so they work with the app closed. Saving needs the token of an **administrator** account.
+
+More ready-made ones: [setup guide, step 9](SETUP.md#9-ready-made-automations).
 
 ## Later, when you want more
 

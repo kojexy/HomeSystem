@@ -137,6 +137,8 @@ You get `sensor.ups_status` and `sensor.ups_battery_charge`.
 3. Replace every `# CHANGE ME` with your own entity ids (Settings → Entities).
 4. Developer tools → YAML → **Check configuration** → **Restart**.
 
+Your own automations: make them in the app (**Automations → New**, or start from an **Idea**). The app saves them into Home Assistant's `automations.yaml`, so they also show in HA → Settings → Automations. The pencil button changes or deletes them. Automations from this package file can be paused and run from the app, but changed only in the file.
+
 Automations for devices you don't have yet simply never run. Why they are written this way: [BEST_PRACTICES.md](BEST_PRACTICES.md).
 
 ## 10. Backups

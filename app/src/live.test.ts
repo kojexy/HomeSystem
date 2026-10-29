@@ -6,6 +6,7 @@ import { createHassBackend } from "./ha/hass";
 import type { ConnectionStatus, Entities, HomeBackend, Rooms } from "./ha/types";
 import { climateTarget, primaryAction, stateText } from "./lib/domains";
 import { alarmOf, groupByRoom, insights, ofDomain, planMode, summarize } from "./lib/home";
+import { fromHa, toHa, type Rule } from "./lib/rules";
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 const HA_URL = env.HA_URL ?? "";
@@ -127,6 +128,40 @@ describe.skipIf(!HA_URL || !HA_TOKEN)("live Home Assistant", () => {
     expect(Array.isArray(insights(second.live.entities))).toBe(true);
 
     second.close();
+  }, 60000);
+
+  it("creates, runs, reads back and deletes an automation made in the app", async () => {
+    const { backend, live, close } = connect();
+    await until(() => live.status === "online" && ofDomain(live.entities, "light").length > 1);
+    const [a, b] = ofDomain(live.entities, "light");
+    await backend.callService("light", "turn_off", { entity_id: a.entity_id });
+    await backend.callService("light", "turn_on", { entity_id: b.entity_id });
+    await until(() => live.entities[a.entity_id].state === "off" && live.entities[b.entity_id].state === "on");
+
+    // "When A turns on → turn B off", saved the way the editor saves it.
+    const rule: Rule = {
+      id: `live_${Date.now()}`,
+      name: "Live test rule",
+      triggers: [{ kind: "device", entity: a.entity_id, to: "on" }],
+      conditions: [],
+      actions: [{ kind: "device", entity: b.entity_id, service: "turn_off" }],
+    };
+    await backend.saveAutomation(toHa(rule));
+    const auto = await until(() => Object.values(live.entities).find((e) => e.entity_id.startsWith("automation.") && e.attributes.id === rule.id));
+    expect(auto.state).toBe("on");
+
+    // It really runs inside Home Assistant.
+    await backend.callService("light", "turn_on", { entity_id: a.entity_id });
+    await until(() => live.entities[b.entity_id].state === "off");
+
+    // The editor can open it again, unchanged.
+    expect(fromHa((await backend.automation(rule.id!))!)).toEqual(rule);
+    expect(await backend.automation("no_such_automation")).toBeNull();
+    expect(Array.isArray(await backend.notifyServices())).toBe(true);
+
+    await backend.deleteAutomation(rule.id!);
+    await until(() => !live.entities[auto.entity_id]);
+    close();
   }, 60000);
 
   it.skipIf(!HA_STREAM_CAMERA)("plays live video from an RTSP camera through Home Assistant", async () => {

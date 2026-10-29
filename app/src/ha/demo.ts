@@ -1,3 +1,4 @@
+import { toHa, type HaAutomation } from "../lib/rules";
 import type { CamEvent, Entities, Entity, HomeBackend, Rooms } from "./types";
 
 // A pretend home so the app can be designed and tested before any hardware arrives.
@@ -43,7 +44,7 @@ export function demoEntities(): Entities {
     entity("camera.front_door", "idle", { friendly_name: "Front door" }),
     entity("camera.garden", "idle", { friendly_name: "Garden" }),
     // Automations, scripts, scenes
-    entity("automation.hallway_motion_light", "on", { friendly_name: "Hallway light on motion", last_triggered: now() }),
+    entity("automation.hallway_motion_light", "on", { friendly_name: "Hallway light on motion", id: "demo1", last_triggered: now() }),
     entity("automation.alarm_notify", "on", { friendly_name: "Alarm → phone alert", last_triggered: null }),
     entity("automation.window_open_heating_off", "on", { friendly_name: "Window open → heating off", last_triggered: null }),
     entity("automation.low_battery_report", "off", { friendly_name: "Weekly low-battery report", last_triggered: null }),
@@ -207,8 +208,29 @@ export function demoEvents(nowMs = Date.now()): CamEvent[] {
   });
 }
 
+/** The one demo automation that was "made in the app", so its editor opens. */
+function demoAutomations(): Map<string, HaAutomation> {
+  const motionLight = toHa(
+    {
+      name: "Hallway light on motion",
+      triggers: [{ kind: "device", entity: "binary_sensor.hallway_motion", to: "on" }],
+      conditions: [{ kind: "between", after: "18:00", before: "07:00" }],
+      actions: [
+        { kind: "device", entity: "light.kitchen", service: "turn_on" },
+        { kind: "wait", minutes: 2 },
+        { kind: "device", entity: "light.kitchen", service: "turn_off" },
+      ],
+    },
+    "demo1"
+  );
+  return new Map([[motionLight.id, motionLight]]);
+}
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "automation";
+
 export function createDemoBackend(): HomeBackend {
   const events = demoEvents();
+  const automations = demoAutomations();
   let state = demoEntities();
   let listener: ((e: Entities) => void) | null = null;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -251,6 +273,28 @@ export function createDemoBackend(): HomeBackend {
 
     async events(limit) {
       return events.slice(0, limit);
+    },
+
+    async automation(id) {
+      return automations.get(id) ?? null;
+    },
+
+    async saveAutomation(config) {
+      automations.set(config.id, config);
+      const old = Object.values(state).find((e) => e.entity_id.startsWith("automation.") && e.attributes.id === config.id);
+      const id = old?.entity_id ?? `automation.${slug(config.alias)}`;
+      state = { ...state, [id]: entity(id, old?.state ?? "on", { friendly_name: config.alias, id: config.id, last_triggered: old?.attributes.last_triggered ?? null }) };
+      listener?.(state);
+    },
+
+    async deleteAutomation(id) {
+      automations.delete(id);
+      state = Object.fromEntries(Object.entries(state).filter(([, e]) => !(e.entity_id.startsWith("automation.") && e.attributes.id === id)));
+      listener?.(state);
+    },
+
+    async notifyServices() {
+      return ["notify.mobile_app_my_phone"];
     },
 
     close() {

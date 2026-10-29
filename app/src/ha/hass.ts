@@ -1,5 +1,7 @@
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import {
   callService,
+  getServices,
   createConnection,
   createLongLivedTokenAuth,
   ERR_INVALID_AUTH,
@@ -7,6 +9,7 @@ import {
   type Connection,
 } from "home-assistant-js-websocket";
 import { toCamEvents, type FrigateEvent } from "../lib/events";
+import type { HaAutomation } from "../lib/rules";
 import { liveStreamUrl } from "../lib/settings";
 import type { ConnectionStatus, Entities, Entity, HomeBackend, Rooms, Settings } from "./types";
 
@@ -46,6 +49,39 @@ export async function fetchRooms(conn: Connection): Promise<Rooms> {
   } catch {
     return { areas: [], entityArea: {} };
   }
+}
+
+/** An HTTP error from Home Assistant's REST API. */
+export class HaHttpError extends Error {
+  constructor(public status: number) {
+    super(
+      status === 401 || status === 403
+        ? "Only a Home Assistant administrator can change automations. Use an admin account's token."
+        : `Home Assistant answered ${status}.`
+    );
+  }
+}
+
+/**
+ * Home Assistant's REST API. The Android app goes through native HTTP, because HA doesn't
+ * allow cross-origin requests from the app's own origin; in a browser it is a normal fetch.
+ */
+async function rest<T>(base: string, token: string, method: string, path: string, body?: unknown): Promise<T> {
+  const url = base + path;
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  if (Capacitor.isNativePlatform()) {
+    const r = await CapacitorHttp.request({ url, method, headers, data: body });
+    if (r.status >= 400) throw new HaHttpError(r.status);
+    return (typeof r.data === "string" && r.data ? JSON.parse(r.data) : r.data) as T;
+  }
+  let r: Response;
+  try {
+    r = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch {
+    throw new Error("Can't reach Home Assistant's API from this page. Open the app from Home Assistant (/local/homesystem/) or use the Android app.");
+  }
+  if (!r.ok) throw new HaHttpError(r.status);
+  return (await r.json()) as T;
 }
 
 /** Talks to a real Home Assistant over its WebSocket API. */
@@ -131,6 +167,32 @@ export function createHassBackend(settings: Settings): HomeBackend {
       toCamEvents(list, (p) => (paths.set(p, p), p));
       await Promise.all([...paths.keys()].map(async (p) => paths.set(p, await sign(c, p))));
       return toCamEvents(list, (p) => paths.get(p) ?? base + p);
+    },
+
+    async automation(id) {
+      try {
+        return await rest<HaAutomation>(base, settings.token, "GET", `/api/config/automation/config/${encodeURIComponent(id)}`);
+      } catch (err) {
+        if (err instanceof HaHttpError && err.status === 404) return null;
+        throw err;
+      }
+    },
+
+    async saveAutomation(config) {
+      await rest(base, settings.token, "POST", `/api/config/automation/config/${encodeURIComponent(config.id)}`, config);
+    },
+
+    async deleteAutomation(id) {
+      await rest(base, settings.token, "DELETE", `/api/config/automation/config/${encodeURIComponent(id)}`);
+    },
+
+    async notifyServices() {
+      if (!conn) return [];
+      const all = await getServices(conn);
+      return Object.keys(all.notify ?? {})
+        .filter((s) => s !== "send_message" && s !== "persistent_notification")
+        .map((s) => `notify.${s}`)
+        .sort();
     },
 
     close() {
