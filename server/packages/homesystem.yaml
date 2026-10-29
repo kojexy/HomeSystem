@@ -1,0 +1,204 @@
+# HomeSystem — ready-made automations for Home Assistant.
+#
+# How to use:
+#   1. Copy this file to /config/packages/homesystem.yaml on Home Assistant.
+#   2. In /config/configuration.yaml add:
+#        homeassistant:
+#          packages: !include_dir_named packages
+#   3. Replace every entity marked  # CHANGE ME  with your own entity ids
+#      (HA → Settings → Devices & services → Entities).
+#   4. Developer tools → YAML → Check configuration → Restart.
+#
+# Style rules used here (community best practice):
+#   - Built-in triggers and conditions, not templates, wherever possible. Templates fail silently.
+#   - Every automation has an id, so it can be edited in the HA UI later.
+#   - Motion lights use mode: restart, so new motion extends the timer instead of starting a second copy.
+#   - "Guest mode" pauses the convenience automations, never the safety ones.
+
+input_boolean:
+  homesystem_guest_mode:
+    name: Guest mode
+    icon: mdi:account-multiple
+
+automation:
+  # ---------- Safety: these always run ----------
+
+  - id: homesystem_alarm_triggered
+    alias: "Alarm → phone alert + lights on"
+    description: When the alarm goes off, light the house and send a photo to the phone.
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: alarm_control_panel.alarmo # CHANGE ME if your alarm has another id
+        to: triggered
+    actions:
+      - action: light.turn_on
+        target:
+          entity_id: all
+        data:
+          brightness_pct: 100
+      - action: notify.mobile_app_my_phone # CHANGE ME (HA Companion app on the phone)
+        data:
+          title: "🚨 Alarm!"
+          message: "The alarm went off at {{ now().strftime('%H:%M') }}."
+          data:
+            image: /api/camera_proxy/camera.front_door # CHANGE ME — needs login, unlike /local files
+            ttl: 0
+            priority: high
+            channel: alarm_stream
+
+  - id: homesystem_water_leak
+    alias: "Water leak → phone alert"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.kitchen_leak # CHANGE ME
+        to: "on"
+    actions:
+      - action: notify.mobile_app_my_phone # CHANGE ME
+        data:
+          title: "💧 Water leak"
+          message: "Water detected in the kitchen."
+          data:
+            ttl: 0
+            priority: high
+
+  - id: homesystem_person_while_away
+    alias: "Camera sees someone while away → photo"
+    description: The camera detects a person while the alarm is armed away.
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.front_door_person # CHANGE ME (Reolink/Frigate person sensor)
+        to: "on"
+    conditions:
+      - condition: state
+        entity_id: alarm_control_panel.alarmo # CHANGE ME
+        state: armed_away
+    actions:
+      - action: notify.mobile_app_my_phone # CHANGE ME
+        data:
+          title: "Someone at the front door"
+          message: "Seen at {{ now().strftime('%H:%M') }} while you are away."
+          data:
+            image: /api/camera_proxy/camera.front_door # CHANGE ME — needs login, unlike /local files
+      - delay: "00:02:00" # no more than one alert every 2 minutes
+
+  # ---------- Energy ----------
+
+  - id: homesystem_window_open_heating_off
+    alias: "Window open → heating off, then back on"
+    description: Saves heat. Pauses the heating while a window is open for 2 minutes.
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.kitchen_window # CHANGE ME (add more windows to the list)
+        to: "on"
+        for: "00:02:00"
+    conditions:
+      - condition: state
+        entity_id: climate.living_room # CHANGE ME
+        state: heat
+    actions:
+      - action: climate.set_hvac_mode
+        target:
+          entity_id: climate.living_room # CHANGE ME
+        data:
+          hvac_mode: "off"
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: binary_sensor.kitchen_window # CHANGE ME
+            to: "off"
+        timeout: "06:00:00"
+        continue_on_timeout: false
+      - action: climate.set_hvac_mode
+        target:
+          entity_id: climate.living_room # CHANGE ME
+        data:
+          hvac_mode: heat
+
+  - id: homesystem_everyone_left
+    alias: "Everyone left → lights and TV off"
+    description: Uses the phones' location (HA Companion app). Plugs are left alone — one may be the fridge.
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: zone.home
+        below: 1
+        for: "00:10:00"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.homesystem_guest_mode
+        state: "off"
+    actions:
+      - action: light.turn_off
+        target:
+          entity_id: all
+      - action: media_player.turn_off
+        target:
+          entity_id: all
+      - action: notify.mobile_app_my_phone # CHANGE ME
+        data:
+          message: "Everyone left. Lights and TV are off. Open HomeSystem to arm the alarm."
+
+  # ---------- Comfort ----------
+
+  - id: homesystem_hallway_motion_light
+    alias: "Hallway light on motion (after dark)"
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.hallway_motion # CHANGE ME
+        to: "on"
+    conditions:
+      - condition: state
+        entity_id: sun.sun
+        state: below_horizon
+      - condition: state
+        entity_id: input_boolean.homesystem_guest_mode
+        state: "off"
+    actions:
+      - action: light.turn_on
+        target:
+          entity_id: light.hallway # CHANGE ME
+        data:
+          # Soft light late at night, full light in the evening.
+          brightness_pct: "{{ 20 if now().hour < 6 else 80 }}"
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: binary_sensor.hallway_motion # CHANGE ME
+            to: "off"
+            for: "00:02:00"
+      - action: light.turn_off
+        target:
+          entity_id: light.hallway # CHANGE ME
+
+  # ---------- Maintenance ----------
+
+  - id: homesystem_low_battery_report
+    alias: "Weekly low-battery report"
+    description: Sunday morning list of sensors under 20 %. (A template is the only way to scan all batteries.)
+    mode: single
+    triggers:
+      - trigger: time
+        at: "10:00:00"
+    conditions:
+      - condition: time
+        weekday: sun
+    actions:
+      # States are text; compare them as numbers, or "100" would sort below "20".
+      - variables:
+          low: >
+            {% set ns = namespace(list=[]) %}
+            {% for s in states.sensor
+                 if s.attributes.device_class == 'battery' and s.state | is_number and s.state | float < 20 %}
+              {% set ns.list = ns.list + [s.name ~ ' (' ~ s.state ~ '%)'] %}
+            {% endfor %}
+            {{ ns.list }}
+      - condition: template
+        value_template: "{{ low | count > 0 }}"
+      - action: notify.mobile_app_my_phone # CHANGE ME
+        data:
+          title: "🔋 Batteries to change"
+          message: "{{ low | join(', ') }}"

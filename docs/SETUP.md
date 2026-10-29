@@ -36,8 +36,9 @@ You now have an entity like `camera.front_door`. The HomeSystem app shows its sn
 
 1. Install the standalone **go2rtc** add-on (HA → Settings → Add-ons → Add-on store → ⋮ → Repositories → add `https://github.com/AlexxIT/hassio-addons`).
 2. Put your streams in its config. Use [`server/go2rtc.yaml`](../server/go2rtc.yaml) as a template.
-3. Check it: open `http://192.168.1.20:1984` and press **stream** next to your camera.
-4. In the HomeSystem app settings, enter `http://192.168.1.20:1984` and the stream name (`front_door`).
+3. **Name each stream like its camera entity:** `camera.front_door` → stream `front_door`. The app finds streams by this name.
+4. Check it: open `http://192.168.1.20:1984` and press **stream** next to your camera.
+5. In the HomeSystem app settings, enter `http://192.168.1.20:1984`. Every camera then gets a **Go live** button.
 
 Note: Home Assistant also has go2rtc built in, but HA manages that config and overwrites manual changes. The add-on is easier to control.
 
@@ -55,7 +56,29 @@ Note: Home Assistant also has go2rtc built in, but HA manages that config and ov
 - Pass the USB stick into the UTM VM (UTM → USB). Note: some users report UTM forgets the USB after a restart — check it after each reboot.
 - Existing Mi Home devices: add them with the official **Xiaomi Home** integration (it uses Xiaomi's cloud), then replace them with Zigbee devices step by step.
 
-## 7. Connect the app
+## 7. Rooms
+
+In HA, open Settings → Areas and create your rooms. Give each device an area. The app's **Rooms** tab uses them.
+
+## 8. Ready-made automations
+
+`server/packages/homesystem.yaml` has seven automations: alarm alert with a photo, water leak alert, person at the door while away, heating off when a window is open, lights off when everyone leaves, hallway motion light, weekly low-battery report.
+
+1. Install the **HA Companion app** on the phone and sign in. It creates `notify.mobile_app_<phone name>`.
+2. Copy the file to `/config/packages/homesystem.yaml` (Samba share or File editor add-on).
+3. In `/config/configuration.yaml` add:
+
+   ```yaml
+   homeassistant:
+     packages: !include_dir_named packages
+   ```
+
+4. Replace every line marked `# CHANGE ME` with your own entity ids.
+5. Developer tools → YAML → **Check configuration** → **Restart**.
+
+Why they are written this way: [BEST_PRACTICES.md](BEST_PRACTICES.md).
+
+## 9. Connect the app
 
 1. HA → your profile (bottom left) → **Security** → **Long-lived access tokens** → Create. Copy it.
 2. Open the HomeSystem app → ⚙ → **My Home Assistant**.
@@ -72,8 +95,7 @@ cd app && npm run build
 Copy everything in `app/dist/` to `/config/www/homesystem/` on HA (use the **Samba share** or **File editor** add-on).
 Open `http://192.168.1.20:8123/local/homesystem/index.html` on the phone → Chrome menu → **Add to Home screen**.
 
-## 8. Later
+## 10. Later
 
 - **Away from home:** install the Tailscale add-on in HA and the Tailscale app on the phone.
-- **Push alerts:** install the HA Companion app on the phone, then add an Alarmo notification "when triggered → notify phone".
 - **Recording and person detection:** add Frigate when you have more than one camera.

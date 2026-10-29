@@ -1,4 +1,5 @@
 import type { Settings } from "../ha/types";
+import { objectId } from "./domains";
 
 const KEY = "homesystem.settings";
 
@@ -10,7 +11,6 @@ export const DEFAULT_SETTINGS: Settings = {
   hassUrl: servedByHass ? location.origin : "",
   token: "",
   go2rtcUrl: "",
-  go2rtcStream: "",
 };
 
 // Stored only in this browser. The token never leaves the device except to your own HA.
@@ -31,9 +31,9 @@ export function saveSettings(s: Settings): void {
   }
 }
 
-/** go2rtc's built-in player page; it picks WebRTC or MSE by itself. */
-export function liveStreamUrl(s: Settings): string | null {
-  if (!s.go2rtcUrl || !s.go2rtcStream) return null;
+/** go2rtc's built-in player for a camera; the stream is named after the camera (camera.garden → garden). */
+export function liveStreamUrl(s: Settings, cameraId: string): string | null {
+  if (s.mode !== "live" || !s.go2rtcUrl) return null;
   const base = s.go2rtcUrl.replace(/\/+$/, "");
-  return `${base}/stream.html?src=${encodeURIComponent(s.go2rtcStream)}&mode=webrtc,mse`;
+  return `${base}/stream.html?src=${encodeURIComponent(objectId(cameraId))}&mode=webrtc,mse`;
 }

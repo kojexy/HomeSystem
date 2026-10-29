@@ -1,55 +1,66 @@
 import { useState } from "react";
 import type { Entity } from "../ha/types";
 import { alarmLabel, name } from "../lib/home";
+import type { HomeCtx } from "../ui";
+import { Icon, type IconName } from "./Icon";
 
-interface Props {
-  alarm: Entity | null;
-  call: (domain: string, service: string, data: Record<string, unknown>) => void;
-}
-
-const ACTIONS = [
-  { service: "alarm_arm_away", label: "Away" },
-  { service: "alarm_arm_home", label: "Home" },
-  { service: "alarm_disarm", label: "Disarm" },
+const ACTIONS: { service: string; label: string; icon: IconName; state: string }[] = [
+  { service: "alarm_arm_away", label: "Away", icon: "leave", state: "armed_away" },
+  { service: "alarm_arm_home", label: "Home", icon: "home", state: "armed_home" },
+  { service: "alarm_disarm", label: "Off", icon: "unlock", state: "disarmed" },
 ];
 
-export function AlarmPanel({ alarm, call }: Props) {
+export function AlarmPanel({ alarm, ctx }: { alarm: Entity | null; ctx: HomeCtx }) {
   const [code, setCode] = useState("");
 
   if (!alarm) {
     return (
       <section className="card alarm">
-        <h2>Security</h2>
-        <p className="muted">No alarm panel yet. Install the Alarmo add-on in Home Assistant — see docs/SETUP.md.</p>
+        <div className="alarm-head">
+          <span className="shield"><Icon name="shield" size={26} /></span>
+          <div>
+            <h2>Security</h2>
+            <p className="muted">No alarm yet. Install Alarmo in Home Assistant — see docs/SETUP.md.</p>
+          </div>
+        </div>
       </section>
     );
   }
 
   const needsCode = Boolean(alarm.attributes.code_format);
-  const run = (service: string) => {
-    call("alarm_control_panel", service, { entity_id: alarm.entity_id, ...(needsCode ? { code } : {}) });
+  const go = (service: string) => {
+    ctx.run({ domain: "alarm_control_panel", service, data: { entity_id: alarm.entity_id, ...(needsCode ? { code } : {}) } });
     setCode("");
   };
 
   return (
     <section className={`card alarm state-${alarm.state}`}>
-      <h2>{name(alarm)}</h2>
-      <div className="alarm-state" role="status">
-        {alarmLabel(alarm.state)}
+      <div className="alarm-head">
+        <span className="shield"><Icon name="shield" size={26} /></span>
+        <div>
+          <h2>{name(alarm)}</h2>
+          <div className="alarm-state" role="status">{alarmLabel(alarm.state)}</div>
+        </div>
       </div>
       {needsCode && (
         <input
-          className="code"
+          className="field code"
           inputMode="numeric"
           autoComplete="off"
-          placeholder="Code"
+          placeholder="Alarm code"
           value={code}
           onChange={(e) => setCode(e.target.value)}
         />
       )}
-      <div className="row">
+      <div className="segmented three">
         {ACTIONS.map((a) => (
-          <button key={a.service} className="pill" onClick={() => run(a.service)} disabled={needsCode && !code}>
+          <button
+            key={a.service}
+            className={alarm.state === a.state ? "active" : ""}
+            onClick={() => go(a.service)}
+            disabled={needsCode && !code}
+          >
+            <Icon name={a.icon} size={18} />
             {a.label}
           </button>
         ))}

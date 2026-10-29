@@ -10,7 +10,7 @@ interface Props {
 export function SettingsPanel({ settings, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<Settings>(settings);
   const set = (k: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setDraft({ ...draft, [k]: e.target.value });
+    setDraft({ ...draft, [k]: e.target.value.trim() });
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
@@ -43,20 +43,17 @@ export function SettingsPanel({ settings, onSave, onClose }: Props) {
           <>
             <label>
               Home Assistant address
-              <input placeholder="http://192.168.1.20:8123" value={draft.hassUrl} onChange={set("hassUrl")} />
+              <input className="field" placeholder="http://192.168.1.20:8123" value={draft.hassUrl} onChange={set("hassUrl")} />
             </label>
             <label>
               Long-lived access token
-              <input type="password" autoComplete="off" value={draft.token} onChange={set("token")} />
+              <input className="field" type="password" autoComplete="off" value={draft.token} onChange={set("token")} />
               <small>HA → your profile → Security → Long-lived access tokens.</small>
             </label>
             <label>
               go2rtc address (optional, for live video)
-              <input placeholder="http://192.168.1.20:1984" value={draft.go2rtcUrl} onChange={set("go2rtcUrl")} />
-            </label>
-            <label>
-              go2rtc stream name
-              <input placeholder="front_door" value={draft.go2rtcStream} onChange={set("go2rtcStream")} />
+              <input className="field" placeholder="http://192.168.1.20:1984" value={draft.go2rtcUrl} onChange={set("go2rtcUrl")} />
+              <small>Name each stream like its camera: camera.front_door → front_door.</small>
             </label>
           </>
         )}

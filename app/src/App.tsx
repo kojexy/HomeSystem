@@ -1,100 +1,125 @@
-import { useCallback, useMemo, useState } from "react";
-import { AlarmPanel } from "./components/AlarmPanel";
-import { CameraCard } from "./components/CameraCard";
-import { LightTile } from "./components/LightTile";
+import { useCallback, useEffect, useState } from "react";
+import { Icon, type IconName } from "./components/Icon";
 import { SettingsPanel } from "./components/SettingsPanel";
 import type { Entity, Settings } from "./ha/types";
 import { useHome } from "./ha/useHome";
-import { groupHome, name, sensorLabel } from "./lib/home";
-import { liveStreamUrl, loadSettings, saveSettings } from "./lib/settings";
+import { greeting, insights } from "./lib/home";
+import { loadSettings, saveSettings } from "./lib/settings";
+import type { HomeCtx } from "./ui";
+import { AutomationsView } from "./views/AutomationsView";
+import { CamerasView } from "./views/CamerasView";
+import { DevicesView } from "./views/DevicesView";
+import { HomeView } from "./views/HomeView";
+import { RoomsView } from "./views/RoomsView";
+
+const TABS = [
+  { id: "home", label: "Home", icon: "home", View: HomeView },
+  { id: "rooms", label: "Rooms", icon: "rooms", View: RoomsView },
+  { id: "cameras", label: "Cameras", icon: "camera", View: CamerasView },
+  { id: "devices", label: "Devices", icon: "list", View: DevicesView },
+  { id: "automations", label: "Automations", icon: "bolt", View: AutomationsView },
+] as const satisfies readonly { id: string; label: string; icon: IconName; View: unknown }[];
+
+type TabId = (typeof TABS)[number]["id"];
+const TAB_KEY = "homesystem.tab";
 
 const STATUS_TEXT = {
   connecting: "Connecting…",
-  online: "Online",
+  online: "Connected",
   offline: "Offline — retrying",
-  "auth-failed": "Token rejected",
+  "auth-failed": "Token rejected — check settings",
 };
+
+function loadTab(): TabId {
+  try {
+    const t = localStorage.getItem(TAB_KEY);
+    return TABS.some((x) => x.id === t) ? (t as TabId) : "home";
+  } catch {
+    return "home";
+  }
+}
 
 export function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [showSettings, setShowSettings] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { entities, status, backend } = useHome(settings);
-  const home = useMemo(() => groupHome(entities), [entities]);
+  const [tab, setTab] = useState<TabId>(loadTab);
+  const [notice, setNotice] = useState<string | null>(null);
+  const { entities, rooms, status, backend, run, error, setError } = useHome(settings);
 
-  const call = useCallback(
-    (domain: string, service: string, data: Record<string, unknown>) => {
-      setError(null);
-      backend.callService(domain, service, data).catch((e: Error) => setError(e.message));
-    },
-    [backend]
-  );
+  useEffect(() => {
+    try {
+      localStorage.setItem(TAB_KEY, tab);
+    } catch {
+      // Not important.
+    }
+    window.scrollTo(0, 0);
+  }, [tab]);
+
+  // Info notes fade by themselves; errors stay until dismissed.
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 6000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
   const snapshotUrl = useCallback((c: Entity) => backend.snapshotUrl(c), [backend]);
-
-  const lightsOn = home.lights.filter((l) => l.state === "on");
+  const ctx: HomeCtx = { entities, rooms, settings, run, snapshotUrl, notify: setNotice };
+  const alerts = insights(entities).filter((i) => i.level !== "info").length;
+  const View = TABS.find((t) => t.id === tab)!.View;
+  const message = error ?? notice;
 
   return (
     <div className="app">
-      <header className="top">
-        <div>
-          <h1>Home</h1>
-          <span className={`status ${status}`}>
-            {settings.mode === "demo" ? "Demo home" : STATUS_TEXT[status]}
-          </span>
+      <nav className="tabs" aria-label="Sections">
+        <div className="brand" aria-hidden>
+          <Icon name="home" size={22} />
         </div>
-        <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">
-          ⚙
-        </button>
-      </header>
+        {TABS.map((t) => (
+          <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)} aria-current={tab === t.id ? "page" : undefined}>
+            <span className="tab-icon">
+              <Icon name={t.icon} size={22} />
+              {t.id === "home" && alerts > 0 && <span className="badge">{alerts}</span>}
+            </span>
+            <span className="tab-label">{t.label}</span>
+          </button>
+        ))}
+      </nav>
 
-      {error && (
-        <div className="toast" role="alert" onClick={() => setError(null)}>
-          {error}
-        </div>
-      )}
-
-      <main className="grid">
-        <CameraCard camera={home.cameras[0] ?? null} snapshotUrl={snapshotUrl} liveUrl={liveStreamUrl(settings)} />
-
-        <AlarmPanel alarm={home.alarm} call={call} />
-
-        <section className="card">
-          <div className="card-head">
-            <h2>Lights</h2>
-            {lightsOn.length > 0 && (
-              <button
-                className="pill small"
-                onClick={() => lightsOn.forEach((l) => call(l.entity_id.split(".")[0], "turn_off", { entity_id: l.entity_id }))}
-              >
-                All off
-              </button>
-            )}
+      <div className="content">
+        <header className="top">
+          <div>
+            <p className="eyebrow">
+              {new Date().toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })}
+            </p>
+            <h1>{tab === "home" ? greeting() : TABS.find((t) => t.id === tab)!.label}</h1>
+            <span className={`status ${settings.mode === "demo" ? "demo" : status}`}>
+              {settings.mode === "demo" ? "Demo home — open settings to connect yours" : STATUS_TEXT[status]}
+            </span>
           </div>
-          {home.lights.length ? (
-            <div className="tiles">
-              {home.lights.map((l) => (
-                <LightTile key={l.entity_id} light={l} call={call} />
-              ))}
-            </div>
-          ) : (
-            <p className="muted">No lights found.</p>
-          )}
-        </section>
+          <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">
+            <Icon name="gear" size={22} />
+          </button>
+        </header>
 
-        {home.sensors.length > 0 && (
-          <section className="card">
-            <h2>Sensors</h2>
-            <ul className="sensors">
-              {home.sensors.map((s) => (
-                <li key={s.entity_id} className={s.state === "on" ? "active" : ""}>
-                  <span>{name(s)}</span>
-                  <span>{sensorLabel(s)}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
+        {message && (
+          <div className={`toast ${error ? "bad" : ""}`} role={error ? "alert" : "status"}>
+            <span>{message}</span>
+            <button
+              aria-label="Dismiss"
+              onClick={() => {
+                setError(null);
+                setNotice(null);
+              }}
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
         )}
-      </main>
+
+        <main>
+          <View ctx={ctx} />
+        </main>
+      </div>
 
       {showSettings && (
         <SettingsPanel
