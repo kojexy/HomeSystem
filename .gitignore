@@ -3,3 +3,7 @@ dist/
 .DS_Store
 *.local
 .env*
+
+# Server private data
+server/ha-config/
+server/go2rtc.private.yaml

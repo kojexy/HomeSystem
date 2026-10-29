@@ -2,13 +2,15 @@
 
 My own smart home: cameras, alarm, lights and every other device, controlled from my phone and my PC with my own design.
 
-- **Brain:** [Home Assistant](https://www.home-assistant.io/) runs at home on the Mac (in a VM). It works without the internet.
-- **App:** a web app in `app/` (React + TypeScript). It talks to Home Assistant over its WebSocket API. Install it on Android or the desktop as an app (PWA).
+- **Server:** [Home Assistant](https://www.home-assistant.io/) runs on one PC at home. It works without the internet. Three ways to install it, including a ready Docker kit in `server/`: [docs/SETUP.md](docs/SETUP.md#2-install-home-assistant-on-the-server-pc).
+- **App:** one app in `app/` (React + TypeScript) for every screen. It talks to Home Assistant over its WebSocket API.
+  - **Android:** a real APK (`app/android`, Capacitor), built by GitHub Actions.
+  - **PC:** open it in Chrome or Edge → "Install app".
 - **Automations:** ready-made ones in `server/packages/homesystem.yaml` — they run inside HA, even with the app closed.
 - **Camera video:** go2rtc gives low-latency live video. Snapshots work through Home Assistant alone.
 
 ```
- phone / PC  ──WebSocket──►  Home Assistant (Mac VM)  ──►  lights, plugs, climate, locks, sensors, Alarmo
+ phone / PC  ──WebSocket──►  Home Assistant (server PC)  ──►  lights, plugs, climate, locks, sensors, Alarmo
      │                              │
      └────── live video ──────►  go2rtc  ──RTSP──►  cameras
 ```
@@ -60,8 +62,9 @@ The full step-by-step guide is in [docs/SETUP.md](docs/SETUP.md).
 
 ```bash
 cd app
-npm test         # unit tests
-npm run build    # production build into app/dist
+npm test          # unit tests
+npm run build     # production build into app/dist
+npm run android   # build + copy into the Android project (then Android Studio, or let GitHub build the APK)
 ```
 
 More: [docs/BEST_PRACTICES.md](docs/BEST_PRACTICES.md) · [docs/RESEARCH.md](docs/RESEARCH.md)

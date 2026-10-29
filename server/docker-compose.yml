@@ -1,0 +1,31 @@
+# HomeSystem server for a Linux PC with Docker — Option C in docs/SETUP.md.
+# (A PC that does nothing else is better off with Home Assistant OS: Option A.)
+#
+# Start:  ./start.sh       Stop: docker compose down       Update: docker compose pull && docker compose up -d
+#
+# Host networking: HA must see the home network to discover devices and cameras.
+# It works only on Linux, not in Docker Desktop on Windows or Mac.
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.10.4
+    container_name: homeassistant
+    network_mode: host
+    privileged: true # lets HA use a Zigbee USB stick
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC} # your time zone, e.g. TZ=Asia/Shanghai ./start.sh
+    volumes:
+      - ./ha-config:/config # HA's own settings and history (not in git)
+      - ./packages:/config/packages:ro # the ready-made HomeSystem automations
+      - ../app/dist:/config/www/homesystem:ro # the HomeSystem app → http://<pc-ip>:8123/local/homesystem/index.html
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro # Bluetooth
+
+  go2rtc:
+    image: alexxit/go2rtc:1.9.15
+    container_name: go2rtc
+    network_mode: host # web UI and API on :1984 — keep it inside the home network
+    restart: unless-stopped
+    volumes:
+      - ./go2rtc.private.yaml:/config/go2rtc.yaml # your copy with real camera passwords (not in git)

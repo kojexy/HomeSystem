@@ -1,5 +1,6 @@
-# go2rtc config for the standalone go2rtc add-on (not the one built into HA,
-# which HA manages and overwrites). Web UI and API: http://<ha-ip>:1984
+# go2rtc config — for the standalone go2rtc add-on (not the one built into HA,
+# which HA manages and overwrites), or for server/docker-compose.yml, which uses
+# a private copy: go2rtc.private.yaml. Web UI and API: http://<ha-ip>:1984
 #
 # Replace USER, PASSWORD and the IP with your camera's values.
 # Never commit the real password — keep it only in the add-on's config.
