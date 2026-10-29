@@ -55,7 +55,10 @@ describe.skipIf(!HA_URL || !HA_TOKEN)("live Home Assistant", () => {
 
     const lights = ofDomain(entities, "light");
     expect(lights.length).toBeGreaterThan(2);
-    await admin.sendMessagePromise({ type: "config/entity_registry/update", entity_id: lights[0].entity_id, area_id: area.area_id });
+    // Like the HA UI: the room goes on the light's device; the app must find it through the device.
+    const reg = await admin.sendMessagePromise<{ device_id: string | null }>({ type: "config/entity_registry/get", entity_id: lights[0].entity_id });
+    expect(reg.device_id).toBeTruthy();
+    await admin.sendMessagePromise({ type: "config/device_registry/update", device_id: reg.device_id, area_id: area.area_id });
     admin.close();
 
     // Rooms: the app reloads them when it reconnects; a fresh connection picks the new room up.
