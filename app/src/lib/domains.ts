@@ -139,9 +139,12 @@ export function stateText(e: Entity): string {
         : capital(e.state);
     case "climate": {
       const cur = a.current_temperature;
-      const target = a.temperature;
+      const now = cur != null ? ` · now ${cur}°` : "";
       if (e.state === "off") return cur != null ? `Off · ${cur}°` : "Off";
-      return `${capital(e.state)} → ${target}°${cur != null ? ` · now ${cur}°` : ""}`;
+      const target = climateTarget(e);
+      const mode = CLIMATE_MODES[e.state] ?? capital(e.state.replace(/_/g, " "));
+      if (!target) return `${mode}${now}`;
+      return `${mode} → ${target.kind === "single" ? target.value : `${target.low}–${target.high}`}°${now}`;
     }
     case "media_player": {
       const title = a.media_title as string | undefined;
@@ -166,6 +169,19 @@ export function stateText(e: Entity): string {
     default:
       return capital(e.state.replace(/_/g, " "));
   }
+}
+
+const CLIMATE_MODES: Record<string, string> = { heat_cool: "Heat/cool", fan_only: "Fan", dry: "Dry", auto: "Auto", heat: "Heat", cool: "Cool" };
+
+/** A thermostat's target: one temperature, or a low–high range in heat/cool mode. */
+export type ClimateTarget = { kind: "single"; value: number } | { kind: "range"; low: number; high: number };
+
+export function climateTarget(e: Entity): ClimateTarget | null {
+  const a = e.attributes;
+  if (typeof a.temperature === "number") return { kind: "single", value: a.temperature };
+  if (typeof a.target_temp_low === "number" && typeof a.target_temp_high === "number")
+    return { kind: "range", low: a.target_temp_low, high: a.target_temp_high };
+  return null;
 }
 
 function capital(s: string) {

@@ -1,5 +1,5 @@
 import type { Entity } from "../ha/types";
-import { domainOf, iconFor, isActive, needsConfirm, primaryAction, stateText, unavailable } from "../lib/domains";
+import { climateTarget, domainOf, iconFor, isActive, needsConfirm, primaryAction, stateText, unavailable } from "../lib/domains";
 import { name } from "../lib/home";
 import type { HomeCtx } from "../ui";
 import { Icon } from "./Icon";
@@ -75,18 +75,27 @@ function Extra({ e, ctx, d, entity_id }: { e: Entity; ctx: HomeCtx; d: string; e
     );
   }
 
-  if (d === "climate" && e.state !== "off") {
-    const target = Number(a.temperature ?? 20);
+  const target = d === "climate" && e.state !== "off" ? climateTarget(e) : null;
+  if (target) {
     const step = Number(a.target_temp_step ?? 0.5);
     const min = Number(a.min_temp ?? 7);
     const max = Number(a.max_temp ?? 30);
-    const set = (t: number) =>
-      ctx.run({ domain: "climate", service: "set_temperature", data: { entity_id, temperature: Math.min(max, Math.max(min, t)) } });
+    const clamp = (t: number) => Math.min(max, Math.max(min, t));
+    // Heat/cool mode has a low–high range: − and + move the whole range.
+    const shift = (by: number) =>
+      ctx.run({
+        domain: "climate",
+        service: "set_temperature",
+        data:
+          target.kind === "single"
+            ? { entity_id, temperature: clamp(target.value + by) }
+            : { entity_id, target_temp_low: clamp(target.low + by), target_temp_high: clamp(target.high + by) },
+      });
     return (
       <div className="mini-row">
-        <button className="mini" onClick={() => set(target - step)} aria-label="Cooler"><Icon name="minus" size={16} /></button>
-        <span className="target">{target}°</span>
-        <button className="mini" onClick={() => set(target + step)} aria-label="Warmer"><Icon name="plus" size={16} /></button>
+        <button className="mini" onClick={() => shift(-step)} aria-label="Cooler"><Icon name="minus" size={16} /></button>
+        <span className="target">{target.kind === "single" ? target.value : `${target.low}–${target.high}`}°</span>
+        <button className="mini" onClick={() => shift(step)} aria-label="Warmer"><Icon name="plus" size={16} /></button>
       </div>
     );
   }

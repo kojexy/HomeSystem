@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createConnection, createLongLivedTokenAuth } from "home-assistant-js-websocket";
 import { createHassBackend } from "./ha/hass";
 import type { ConnectionStatus, Entities, HomeBackend, Rooms } from "./ha/types";
-import { primaryAction } from "./lib/domains";
+import { climateTarget, primaryAction, stateText } from "./lib/domains";
 import { alarmOf, groupByRoom, insights, ofDomain, planMode, summarize } from "./lib/home";
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -88,6 +88,15 @@ describe.skipIf(!HA_URL || !HA_TOKEN)("live Home Assistant", () => {
     await expect(
       second.backend.callService("alarm_control_panel", "alarm_arm_away", { entity_id: alarm!.entity_id, code: "0000" })
     ).rejects.toThrow();
+
+    // A heat/cool thermostat shows its range and accepts a new one (what the − / + buttons send).
+    const ranged = ofDomain(second.live.entities, "climate").find((c) => climateTarget(c)?.kind === "range");
+    if (ranged) {
+      expect(stateText(ranged)).not.toContain("undefined");
+      const t = climateTarget(ranged) as { low: number; high: number };
+      await second.backend.callService("climate", "set_temperature", { entity_id: ranged.entity_id, target_temp_low: t.low + 1, target_temp_high: t.high + 1 });
+      await until(() => second.live.entities[ranged.entity_id].attributes.target_temp_low === t.low + 1);
+    }
 
     // Camera stills load through HA's signed link.
     const camera = ofDomain(second.live.entities, "camera")[0];
