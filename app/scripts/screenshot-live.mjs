@@ -38,6 +38,32 @@ if (process.env.HA_STREAM_CAMERA) {
 }
 
 const width = await page.evaluate(() => document.documentElement.scrollWidth);
+
+// The PC app: same app on a laptop-size window (left menu instead of the bottom bar).
+const pc = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+pc.on("pageerror", (e) => errors.push(`PC: ${e.message}`));
+await pc.goto(APP_URL);
+await pc.evaluate((s) => localStorage.setItem("homesystem.settings", JSON.stringify(s)), settings);
+await pc.reload();
+await pc.getByText("Connected", { exact: true }).waitFor({ timeout: 30000 });
+const rail = await pc.locator("nav.tabs").boundingBox();
+if (!rail || rail.width > 120 || rail.height < 400) errors.push("PC: the side menu is not on the left");
+for (const tab of ["Home", "Rooms", "Devices"]) {
+  await pc.locator("nav.tabs button", { hasText: tab }).click();
+  await pc.waitForTimeout(1500);
+  await pc.screenshot({ path: `${OUT}/pc-${tab.toLowerCase()}.png` });
+}
+if (process.env.HA_STREAM_CAMERA) {
+  await pc.locator("nav.tabs button", { hasText: "Cameras" }).click();
+  const state = await (await fetch(`${HA_URL}/api/states/${process.env.HA_STREAM_CAMERA}`, { headers: { Authorization: `Bearer ${HA_TOKEN}` } })).json();
+  const card = pc.locator(".card.camera").filter({ has: pc.locator(".cam-name", { hasText: state.attributes.friendly_name }) }).first();
+  await card.getByRole("button", { name: "Go live" }).click();
+  await pc.waitForFunction((v) => v.currentTime > 1 && v.readyState >= 2, await card.locator("video").elementHandle({ timeout: 20000 }), { timeout: 45000 });
+  await pc.screenshot({ path: `${OUT}/pc-cameras-live.png` });
+  console.log("PC: live video plays.");
+}
+const pcWidth = await pc.evaluate(() => document.documentElement.scrollWidth);
+if (pcWidth > 1440) errors.push(`PC: page is wider than the window: ${pcWidth}px`);
 await browser.close();
 
 if (width > 390) errors.push(`page is wider than the phone: ${width}px`);
