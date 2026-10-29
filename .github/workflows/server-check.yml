@@ -28,8 +28,8 @@ jobs:
           cp -r server/packages /tmp/ha/packages
           image=$(grep -oE 'ghcr.io/home-assistant/home-assistant:[^ ]+' server/docker-compose.yml)
           docker run --rm -v /tmp/ha:/config "$image" \
-            python -m homeassistant --script check_config --config /config --info all | tee /tmp/ha-check.txt
-          ! grep -qiE "invalid config|error" /tmp/ha-check.txt
+            python -m homeassistant --script check_config --config /config | tee /tmp/ha-check.txt
+          grep -q "Successful config" /tmp/ha-check.txt && ! grep -q "Failed config" /tmp/ha-check.txt
 
       - name: Frigate config
         run: |
