@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { App as CapApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./components/Icon";
 import { SettingsPanel } from "./components/SettingsPanel";
 import type { Entity, Settings } from "./ha/types";
@@ -54,6 +56,21 @@ export function App() {
     }
     window.scrollTo(0, 0);
   }, [tab]);
+
+  // Android back button: close settings, then go to Home, then leave the app.
+  const back = useRef({ showSettings, tab });
+  back.current = { showSettings, tab };
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const sub = CapApp.addListener("backButton", () => {
+      if (back.current.showSettings) setShowSettings(false);
+      else if (back.current.tab !== "home") setTab("home");
+      else CapApp.exitApp();
+    });
+    return () => {
+      sub.then((s) => s.remove());
+    };
+  }, []);
 
   // Info notes fade by themselves; errors stay until dismissed.
   useEffect(() => {
