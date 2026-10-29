@@ -57,7 +57,7 @@ Frigate records 24/7, finds people, cars and animals with AI on the server, and 
 3. Copy [`server/frigate/config.yml`](../server/frigate/config.yml) into the add-on's config (`/addon_configs/ccab4aaf_frigate/config.yml`, File editor add-on). Change:
    - camera IPs, and the login: replace `{FRIGATE_RTSP_USER}` / `{FRIGATE_RTSP_PASSWORD}` with the Tapo camera account;
    - `mqtt:` → `host: core-mosquitto`, `user: frigate`, `password: …`.
-4. In the add-on's **Network** settings, turn on port **1984** (live video for the app). Start it.
+4. Start it. In the add-on's **Network** settings, keep ports **5000** and **1984** off: they have no password. The app gets live video through Home Assistant, which checks the login.
 
 **Docker (C):** already running. Edit `server/frigate-config/config.yml` (camera IPs), then `docker restart frigate`.
 
@@ -67,7 +67,7 @@ Frigate records 24/7, finds people, cars and animals with AI on the server, and 
    URL: HA OS `http://ccab4aaf-frigate:5000`, Docker `http://127.0.0.1:5000`.
 3. You get `camera.yard`, `camera.living_room`, … and switches like `switch.living_room_recordings`.
 4. Frigate's own page: `https://192.168.1.20:8971` (Docker: first password in `docker logs frigate`).
-5. In the HomeSystem app settings, enter **go2rtc** `http://192.168.1.20:1984` → every camera gets **Go live**.
+5. In the HomeSystem app, every camera gets **Go live** (through Home Assistant). Leave the go2rtc field empty.
    The **AI events** list on the Cameras tab fills up by itself.
 
 Tips: draw **zones** in Frigate (driveway, door) and **motion masks** over trees and the street, to stop false alerts.
@@ -114,7 +114,7 @@ You get `sensor.ups_status` and `sensor.ups_battery_charge`.
 
 ## 9. Ready-made automations
 
-[`server/packages/homesystem.yaml`](../server/packages/homesystem.yaml) has 13:
+[`server/packages/homesystem.yaml`](../server/packages/homesystem.yaml) has 14:
 
 | Safety | Energy and comfort | AI and maintenance |
 |---|---|---|
@@ -123,6 +123,7 @@ You get `sensor.ups_status` and `sensor.ups_battery_charge`.
 | Water leak → phone alert | Hallway light on motion (after dark) | Alert → clip saved for the cloud |
 | Power cut → phone alert (UPS) | Lamp plug: on at sunset, off at 23:30 | Weekly low-battery report |
 | Indoor cameras record only when armed | | |
+| Wrong password → phone alert | | |
 
 1. Install the **HA Companion app** on the phone and sign in. It creates `notify.mobile_app_<phone name>`.
 2. HA OS: copy the file to `/config/packages/homesystem.yaml` (File editor add-on), and add to `/config/configuration.yaml`:
@@ -157,7 +158,7 @@ Automations for devices you don't have yet simply never run. Why they are writte
 
 1. HA → your profile (bottom left) → **Security** → **Long-lived access tokens** → Create. Copy it.
 2. Open the HomeSystem app → settings (top right) → **My Home Assistant**.
-3. Address: `http://192.168.1.20:8123`. Token: paste. go2rtc: `http://192.168.1.20:1984`. Save.
+3. Address: `http://192.168.1.20:8123`. Token: paste. Leave go2rtc empty. Save.
 
 ### Android app (APK)
 

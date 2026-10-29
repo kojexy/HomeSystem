@@ -53,7 +53,7 @@ export function SettingsPanel({ settings, onSave, onClose }: Props) {
             <label>
               go2rtc / Frigate address (optional, faster live video)
               <input className="field" placeholder="http://192.168.1.20:1984" value={draft.go2rtcUrl} onChange={set("go2rtcUrl")} />
-              <small>Leave empty to get live video from Home Assistant (a few seconds behind). With Frigate: its address, port 1984.</small>
+              <small>Best left empty: live video then comes through Home Assistant, which checks your login. go2rtc has no password.</small>
             </label>
           </>
         )}

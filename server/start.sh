@@ -41,4 +41,3 @@ echo
 echo "Home Assistant:  http://$ip:8123   (first start takes a few minutes)"
 echo "HomeSystem app:  http://$ip:8123/local/homesystem/index.html"
 echo "Frigate:         https://$ip:8971   (first password: docker logs frigate 2>&1 | grep -i password)"
-echo "Live video:      http://$ip:1984"

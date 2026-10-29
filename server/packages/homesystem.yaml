@@ -19,6 +19,11 @@
 #   - Motion lights use mode: restart, so new motion extends the timer instead of starting a second copy.
 #   - "Guest mode" pauses the convenience automations, never the safety ones.
 
+# Block an address after 5 wrong passwords (unblock: delete it from /config/ip_bans.yaml).
+http:
+  ip_ban_enabled: true
+  login_attempts_threshold: 5
+
 input_boolean:
   homesystem_guest_mode:
     name: Guest mode
@@ -176,6 +181,22 @@ automation:
             - switch.hallway_recordings
             - switch.bedroom_detect
             - switch.bedroom_recordings
+
+  - id: homesystem_failed_login
+    alias: "Someone typed a wrong password → phone alert"
+    description: Home Assistant shows a "Login attempt failed" note; this sends it to the phone with the address.
+    mode: queued
+    triggers:
+      - trigger: persistent_notification
+        notification_id: http-login
+        update_type: added
+    actions:
+      - action: notify.mobile_app_my_phone # CHANGE ME
+        data:
+          title: "🔐 Failed login to Home Assistant"
+          message: "{{ trigger.notification.message }}"
+          data:
+            priority: high
 
   # ---------- Energy ----------
 

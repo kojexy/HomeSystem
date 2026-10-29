@@ -37,8 +37,9 @@ services:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto-data:/mosquitto/data
 
-  # Cameras: 24/7 recording, AI object detection, live video (built-in go2rtc on :1984).
-  # UI: https://<server-ip>:8971 — the first admin password is printed in: docker logs frigate
+  # Cameras: 24/7 recording, AI object detection, live video.
+  # UI: https://<server-ip>:8971 (login) — the first admin password is printed in: docker logs frigate
+  # Its password-free ports stay on this computer only (see networking: in frigate/config.yml).
   frigate:
     image: ghcr.io/blakeblackshear/frigate:0.18.2
     container_name: frigate

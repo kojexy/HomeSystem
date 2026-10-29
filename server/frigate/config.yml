@@ -11,6 +11,14 @@ version: 0.18-0 # tells Frigate this file is already in its current format
 mqtt:
   host: 127.0.0.1 # HA OS: core-mosquitto, plus user/password of an HA user
 
+# Privacy: the ports without a password (5000 API, 1984 go2rtc, 8554 RTSP) answer only
+# on this computer, not on the Wi-Fi. Home Assistant runs here too, so it still reaches them.
+# The Frigate page (8971) asks for a login. HA OS add-on: delete this block and go2rtc's
+# api/rtsp lines, and keep the add-on's port 5000 and 1984 switched off.
+networking:
+  listen:
+    internal: 127.0.0.1:5000
+
 # AI object detection on the Intel GPU (Intel N100 mini-PC and newer).
 # No Intel GPU? Delete these two blocks; Frigate falls back to the CPU (slow, OK for 1–2 cameras).
 detectors:
@@ -31,6 +39,10 @@ ffmpeg:
 # Each camera: main stream for recording, small stream for detection.
 # Tapo: stream1 = full quality, stream2 = 640×360.
 go2rtc:
+  api:
+    listen: 127.0.0.1:1984
+  rtsp:
+    listen: 127.0.0.1:8554
   streams:
     yard:
       - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.51:554/stream1 # CHANGE ME

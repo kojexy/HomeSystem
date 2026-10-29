@@ -7,7 +7,7 @@ My own smart home: cameras, alarm, lights and every other device, controlled fro
   - **Android:** a real APK (`app/android`, Capacitor), built by GitHub Actions.
   - **PC:** open it in Chrome or Edge → "Install app".
 - **Cameras and AI:** [Frigate](https://frigate.video/) records 24/7, finds people, cars and animals, and can describe each event with AI. Live video through its go2rtc.
-- **Automations:** 13 ready-made ones in `server/packages/homesystem.yaml` — they run inside HA, even with the app closed.
+- **Automations:** 14 ready-made ones in `server/packages/homesystem.yaml` — they run inside HA, even with the app closed.
 - **Cloud:** event photos and alert clips are copied to Google Drive, Dropbox or Yandex Disk. The 24/7 video stays at home.
 
 ```
@@ -50,7 +50,8 @@ The full step-by-step guide is in [docs/SETUP.md](docs/SETUP.md).
 
 ## Safety
 
-- Keep Home Assistant, Frigate (ports 8971, 5000, 1984) and the cameras **inside your home network**. Do not open router ports.
+- Keep Home Assistant, Frigate and the cameras **inside your home network**. Do not open router ports. Frigate's password-free ports answer only on the server itself.
+- Full family checklist: [docs/SECURITY.md](docs/SECURITY.md).
 - For access outside home, use Tailscale (a private VPN), not port forwarding.
 - The HA token stays in your browser only. To revoke it, delete it in HA → Profile → Security.
 - Never commit passwords or keys. They live in `server/.env`, which git ignores.
@@ -58,6 +59,7 @@ The full step-by-step guide is in [docs/SETUP.md](docs/SETUP.md).
 ## Docs
 
 - **[Quick start](docs/QUICKSTART.md) — computer + phone + one camera, on your normal Wi-Fi. Start here.**
+- [Security: family only](docs/SECURITY.md) — who can see the cameras, and a one-evening checklist
 - [What to buy](docs/HARDWARE.md) — server, 4 cameras, Zigbee sensors, plugs, lights, siren, UPS
 - [Setup guide](docs/SETUP.md) — 12 steps, from installing Home Assistant to access away from home
 - [Best practices](docs/BEST_PRACTICES.md) · [Research](docs/RESEARCH.md)
