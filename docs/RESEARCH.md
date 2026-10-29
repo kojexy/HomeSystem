@@ -15,7 +15,7 @@ Yes, several custom React dashboards for Home Assistant exist. None of them comb
 
 - [go2rtc](https://github.com/AlexxIT/go2rtc) is the standard tool. It turns RTSP into WebRTC/MSE for the browser. Web UI on port 1984.
 - [WebRTC Camera](https://github.com/AlexxIT/WebRTC) is the Lovelace card version; we do not use Lovelace, so we embed go2rtc's own player.
-- HA's built-in go2rtc config is managed by HA and manual edits get lost ([forum](https://community.home-assistant.io/t/moving-go2rtc-config-from-add-on-to-built-in-with-ha-on-newer-versions-setup/826287)), so we use the standalone add-on.
+- HA's built-in go2rtc config is managed by HA and manual edits get lost ([forum](https://community.home-assistant.io/t/moving-go2rtc-config-from-add-on-to-built-in-with-ha-on-newer-versions-setup/826287)), so we use the go2rtc inside Frigate.
 - A forum thread reports [go2rtc/WebRTC issues since HA 2026.9.1](https://community.home-assistant.io/t/go2rtc-webrtc-issues-since-2026-9-1/1024418). Not confirmed; watch it when updating HA.
 
 ## Which camera
@@ -38,3 +38,11 @@ Yes, several custom React dashboards for Home Assistant exist. None of them comb
 
 - Which Mac model runs 24/7? A laptop that sleeps is a weak server; a cheap mini PC or Home Assistant Green may be better later.
 - Phone push alerts: HA Companion app is the simplest path; our own push needs HTTPS and a service worker push setup.
+
+## Frigate and AI (October 2026)
+
+- Frigate 0.18.2 is current. Detection on Intel graphics uses OpenVINO with the bundled SSDLite model; YOLOv9 is better but must be exported by hand.
+- Frigate 0.17+ writes AI **review summaries** and **object descriptions** with Gemini, OpenAI or Ollama; Ollama on CPU is too slow to be useful.
+- Home Assistant's **AI Task** (`ai_task.generate_data`, since 2025.8) can look at a camera through `media-source://camera/<entity>`. Some users report attachment issues with some providers, so the alert automation falls back to plain text.
+- The Frigate integration gives the app `frigate/events/get` over HA's WebSocket and `/api/frigate/notifications/<id>/…` links for thumbnails, snapshots and clips; the app signs them with `auth/sign_path`.
+- Tapo P100 has no power metering; P110 does.

@@ -6,13 +6,16 @@ My own smart home: cameras, alarm, lights and every other device, controlled fro
 - **App:** one app in `app/` (React + TypeScript) for every screen. It talks to Home Assistant over its WebSocket API.
   - **Android:** a real APK (`app/android`, Capacitor), built by GitHub Actions.
   - **PC:** open it in Chrome or Edge → "Install app".
-- **Automations:** ready-made ones in `server/packages/homesystem.yaml` — they run inside HA, even with the app closed.
-- **Camera video:** go2rtc gives low-latency live video. Snapshots work through Home Assistant alone.
+- **Cameras and AI:** [Frigate](https://frigate.video/) records 24/7, finds people, cars and animals, and can describe each event with AI. Live video through its go2rtc.
+- **Automations:** 13 ready-made ones in `server/packages/homesystem.yaml` — they run inside HA, even with the app closed.
+- **Cloud:** event photos and alert clips are copied to Google Drive, Dropbox or Yandex Disk. The 24/7 video stays at home.
 
 ```
- phone / PC  ──WebSocket──►  Home Assistant (server PC)  ──►  lights, plugs, climate, locks, sensors, Alarmo
-     │                              │
-     └────── live video ──────►  go2rtc  ──RTSP──►  cameras
+ phone / PC  ──WebSocket──►  Home Assistant (server PC)  ──►  Zigbee sensors, siren, plugs, lights, Alarmo, UPS
+     │                              │  MQTT
+     └────── live video ──────►  Frigate + go2rtc  ──RTSP──►  4 cameras
+                                    │  AI: detection at home · descriptions (Gemini or local Ollama)
+                                    └──►  cloud backup of events (rclone)
 ```
 
 ## Try it now (no hardware needed)
@@ -30,9 +33,9 @@ On the phone, open `http://<mac-ip>:5173` on the same Wi-Fi.
 
 | Tab | What it does |
 |---|---|
-| **Home** | Status chips (alarm, lights, doors, temperature, power) · one-tap modes **Leave home / Good night / I'm home** · **Needs attention** with one-tap fixes · main camera · alarm · what is on now · biggest power users |
+| **Home** | What the cameras noticed today · status chips (alarm, lights, doors, temperature, power) · one-tap modes **Leave home / Good night / I'm home** · **Needs attention** with one-tap fixes · main camera · alarm · what is on now · biggest power users |
 | **Rooms** | Every device grouped by its Home Assistant area, with room temperature and "Lights off" per room |
-| **Cameras** | All cameras; still frames every 2 s, **Go live** via go2rtc, full screen |
+| **Cameras** | All cameras; still frames every 2 s, **Go live**, full screen · **AI events**: who and what the cameras saw, with photos, clips and an AI sentence |
 | **Devices** | Search and filter all devices by type |
 | **Automations** | Turn automations on/off, run them now, start scenes and scripts |
 
@@ -47,16 +50,16 @@ The full step-by-step guide is in [docs/SETUP.md](docs/SETUP.md).
 
 ## Safety
 
-- Keep Home Assistant, go2rtc (port 1984) and the cameras **inside your home network**. Do not open router ports.
+- Keep Home Assistant, Frigate (ports 8971, 5000, 1984) and the cameras **inside your home network**. Do not open router ports.
 - For access outside home, use Tailscale (a private VPN), not port forwarding.
 - The HA token stays in your browser only. To revoke it, delete it in HA → Profile → Security.
-- Never commit camera passwords. `server/go2rtc.yaml` holds placeholders only.
+- Never commit passwords or keys. They live in `server/.env`, which git ignores.
 
-## Next
+## Docs
 
-- Push alerts — the ready-made automations already send them through the HA Companion app.
-- Remote access via Tailscale.
-- Recording and person detection with Frigate, once there is more than one real camera.
+- [What to buy](docs/HARDWARE.md) — server, 4 cameras, Zigbee sensors, plugs, lights, siren, UPS
+- [Setup guide](docs/SETUP.md) — 12 steps, from installing Home Assistant to access away from home
+- [Best practices](docs/BEST_PRACTICES.md) · [Research](docs/RESEARCH.md)
 
 ## Develop
 
@@ -67,4 +70,3 @@ npm run build     # production build into app/dist
 npm run android   # build + copy into the Android project (then Android Studio, or let GitHub build the APK)
 ```
 
-More: [docs/BEST_PRACTICES.md](docs/BEST_PRACTICES.md) · [docs/RESEARCH.md](docs/RESEARCH.md)

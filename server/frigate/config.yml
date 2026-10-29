@@ -1,0 +1,172 @@
+# Frigate config for HomeSystem — 4 Tapo cameras: 1 outdoor (C320WS) + 3 indoor (C210).
+# start.sh copies this to frigate-config/config.yml once; edit that copy, not this one.
+# HA OS (option A/B): paste it into the Frigate add-on config instead (see docs/SETUP.md).
+#
+#  1. Set each camera's IP (# CHANGE ME). Give the cameras fixed IPs in the router.
+#  2. The camera login comes from .env: FRIGATE_RTSP_USER / FRIGATE_RTSP_PASSWORD.
+#  3. Camera names must match the HA camera entities (camera.yard → yard): the app finds live video by name.
+
+mqtt:
+  host: 127.0.0.1 # HA OS: core-mosquitto, plus user/password of an HA user
+
+# AI object detection on the Intel GPU (Intel N100 mini-PC and newer).
+# No Intel GPU? Delete these two blocks; Frigate falls back to the CPU (slow, OK for 1–2 cameras).
+detectors:
+  ov:
+    type: openvino
+    device: GPU
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  path: /openvino-model/ssdlite_mobilenet_v2.xml
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+ffmpeg:
+  hwaccel_args: preset-vaapi # Intel video decoding; delete on a PC without Intel graphics
+
+# Each camera: main stream for recording, small stream for detection.
+# Tapo: stream1 = full quality, stream2 = 640×360.
+go2rtc:
+  streams:
+    yard:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.51:554/stream1 # CHANGE ME
+    yard_sub:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.51:554/stream2 # CHANGE ME
+    living_room:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.52:554/stream1 # CHANGE ME
+    living_room_sub:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.52:554/stream2 # CHANGE ME
+    hallway:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.53:554/stream1 # CHANGE ME
+    hallway_sub:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.53:554/stream2 # CHANGE ME
+    bedroom:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.54:554/stream1 # CHANGE ME
+    bedroom_sub:
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.54:554/stream2 # CHANGE ME
+
+# 24/7 video for a week; alerts kept a month. About 20 GB per camera per day → 1 TB disk for 4 cameras.
+record:
+  enabled: true
+  continuous:
+    days: 7
+  alerts:
+    retain:
+      days: 30
+      mode: motion
+  detections:
+    retain:
+      days: 14
+      mode: motion
+
+snapshots:
+  enabled: true
+  bounding_box: true
+  retain:
+    default: 30
+
+detect:
+  fps: 5
+
+objects:
+  track: [person, dog, cat]
+  filters:
+    person:
+      min_score: 0.6 # fewer false alarms
+
+# "Alert" = worth a phone notification. Everything else is a quieter "detection".
+review:
+  alerts:
+    labels: [person]
+
+# Search recordings by words, e.g. "man with a red bag" (runs at home).
+semantic_search:
+  enabled: true
+  model_size: small
+
+# Recognise family faces, so alerts can say "Mum came home" (train faces in the Frigate UI).
+face_recognition:
+  enabled: false # true when the cameras are installed
+
+# ---- AI descriptions (Google Gemini, free key in .env) ----
+# Frigate writes a short summary of every alert, e.g. "A courier left a parcel at the door."
+# To turn on: put FRIGATE_GEMINI_API_KEY in .env, then remove the # from the lines below.
+# genai:
+#   gemini:
+#     provider: gemini
+#     api_key: "{FRIGATE_GEMINI_API_KEY}"
+#     model: gemini-2.5-flash
+# objects:  (merge with the objects: block above)
+#   genai:
+#     enabled: true
+# review:   (merge with the review: block above)
+#   genai:
+#     enabled: true
+#     additional_concerns:
+#       - someone trying door handles or windows
+#       - a stranger staying near the door for a long time
+#
+# Local AI instead (profile "local-ai", strong PC with a graphics card):
+#   provider: ollama
+#   base_url: http://127.0.0.1:11434
+#   model: qwen3-vl:4b
+
+cameras:
+  yard: # outdoor, Tapo C320WS
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/yard
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/yard_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      width: 640
+      height: 360
+    objects:
+      track: [person, car, dog, cat, bicycle]
+    review:
+      alerts:
+        labels: [person, car]
+
+  living_room: # indoor, Tapo C210
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/living_room
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/living_room_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      width: 640
+      height: 360
+
+  hallway: # indoor, Tapo C210
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/hallway
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/hallway_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      width: 640
+      height: 360
+
+  bedroom: # indoor, Tapo C210
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/bedroom
+          input_args: preset-rtsp-restream
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/bedroom_sub
+          input_args: preset-rtsp-restream
+          roles: [detect]
+    detect:
+      width: 640
+      height: 360

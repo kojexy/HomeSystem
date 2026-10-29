@@ -335,3 +335,23 @@ button.tile-main:active { transform: scale(0.97); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Camera AI events ---------- */
+
+.events h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.events h2 svg { color: var(--accent); }
+.events-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.events .chips { margin-bottom: 12px; }
+.event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.event-list li { border-radius: var(--radius-sm); transition: background 0.2s; }
+.event-list li.open, .event-list li:hover { background: var(--glass-hi); }
+.event-row { display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 8px; text-align: left; }
+.event-thumb { flex: 0 0 auto; width: 76px; height: 56px; object-fit: cover; border-radius: 12px; background: var(--glass-2); }
+.event-text { display: grid; gap: 3px; min-width: 0; }
+.event-title { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 15px; flex-wrap: wrap; }
+.event-title svg { color: var(--accent); flex: 0 0 auto; }
+.event-title .muted { font-weight: 400; }
+.event-desc { font-size: 14px; color: var(--text); opacity: 0.9; }
+.event-desc.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.event-media { padding: 0 8px 10px; }
+.event-media img, .event-media video { display: block; width: 100%; border-radius: 14px; background: #000; aspect-ratio: 16 / 9; object-fit: cover; }

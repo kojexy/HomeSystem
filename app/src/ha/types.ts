@@ -48,6 +48,27 @@ export interface ServiceCall {
   data: Record<string, unknown>;
 }
 
+/** Something a camera's AI (Frigate) noticed: a person, a car, an animal. */
+export interface CamEvent {
+  id: string;
+  /** Frigate camera name, the same as the HA camera's object id (camera.yard → yard). */
+  camera: string;
+  /** person, car, dog, cat… */
+  label: string;
+  /** A recognised face or plate, if any. */
+  subLabel: string | null;
+  /** Unix seconds. */
+  start: number;
+  end: number | null;
+  /** Detection confidence 0–1. */
+  score: number | null;
+  /** Generative-AI summary of what happened, if AI is set up. */
+  description: string | null;
+  thumbUrl: string;
+  snapshotUrl: string | null;
+  clipUrl: string | null;
+}
+
 /** Everything the UI needs from a home. The real HA backend and the demo both implement it. */
 export interface HomeBackend {
   subscribe(
@@ -58,5 +79,7 @@ export interface HomeBackend {
   callService(domain: string, service: string, data: Record<string, unknown>): Promise<void>;
   /** A URL for the current still frame of a camera, or null. */
   snapshotUrl(camera: Entity): string | null;
+  /** Latest camera AI events, newest first, or null when there is no Frigate. */
+  events(limit: number): Promise<CamEvent[] | null>;
   close(): void;
 }

@@ -1,12 +1,17 @@
 # HomeSystem server for a Linux PC with Docker — Option C in docs/SETUP.md.
 # (A PC that does nothing else is better off with Home Assistant OS: Option A.)
 #
-# Start:  ./start.sh       Stop: docker compose down       Update: docker compose pull && docker compose up -d
+# Start:   ./start.sh
+# Stop:    docker compose down
+# Update:  change the version numbers below, then ./start.sh
+# Extras:  COMPOSE_PROFILES=cloud,local-ai ./start.sh   (set it in .env to keep it)
 #
-# Host networking: HA must see the home network to discover devices and cameras.
+# Host networking: HA must see the home network to find devices and cameras.
 # It works only on Linux, not in Docker Desktop on Windows or Mac.
+# Secrets (camera password, AI key) live in .env, which is never committed.
 
 services:
+  # The brain: devices, automations, alarm. http://<server-ip>:8123
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:2026.10.4
     container_name: homeassistant
@@ -14,18 +19,68 @@ services:
     privileged: true # lets HA use a Zigbee USB stick
     restart: unless-stopped
     environment:
-      TZ: ${TZ:-UTC} # your time zone, e.g. TZ=Asia/Shanghai ./start.sh
+      TZ: ${TZ:-UTC}
     volumes:
       - ./ha-config:/config # HA's own settings and history (not in git)
       - ./packages:/config/packages:ro # the ready-made HomeSystem automations
-      - ../app/dist:/config/www/homesystem:ro # the HomeSystem app → http://<pc-ip>:8123/local/homesystem/index.html
+      - ../app/dist:/config/www/homesystem:ro # the app → http://<server-ip>:8123/local/homesystem/index.html
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro # Bluetooth
 
-  go2rtc:
-    image: alexxit/go2rtc:1.9.15
-    container_name: go2rtc
-    network_mode: host # web UI and API on :1984 — keep it inside the home network
+  # Message bus between Frigate and Home Assistant. Listens on this PC only.
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    container_name: mosquitto
+    network_mode: host
     restart: unless-stopped
     volumes:
-      - ./go2rtc.private.yaml:/config/go2rtc.yaml # your copy with real camera passwords (not in git)
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto-data:/mosquitto/data
+
+  # Cameras: 24/7 recording, AI object detection, live video (built-in go2rtc on :1984).
+  # UI: https://<server-ip>:8971 — the first admin password is printed in: docker logs frigate
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:0.18.2
+    container_name: frigate
+    network_mode: host
+    restart: unless-stopped
+    stop_grace_period: 30s
+    shm_size: 512mb # about 100 MB per camera
+    devices:
+      - /dev/dri:/dev/dri # Intel GPU for AI detection and video decoding. Delete these 2 lines if the PC has none.
+    env_file: .env
+    volumes:
+      - ./frigate-config:/config # config.yml + database (not in git)
+      - ${RECORDINGS_DIR:-./recordings}:/media/frigate # put this on the big disk
+      - /etc/localtime:/etc/localtime:ro
+      - type: tmpfs # video cache in RAM, saves the disk
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+
+  # Optional (profile "cloud"): copies event photos and alert clips to Google Drive,
+  # Dropbox or Yandex Disk every 5 minutes. Not the 24/7 video — that stays at home.
+  cloud-backup:
+    image: rclone/rclone:1.75.2
+    container_name: cloud-backup
+    profiles: [cloud]
+    network_mode: host
+    restart: unless-stopped
+    entrypoint: /bin/sh
+    command: /cloud/cloud-backup.sh
+    env_file: .env
+    volumes:
+      - ./cloud:/cloud:ro
+      - ./rclone-config:/config/rclone # cloud login (not in git)
+      - ${RECORDINGS_DIR:-./recordings}:/media/frigate
+
+  # Optional (profile "local-ai"): AI that runs at home instead of Google Gemini.
+  # Needs a strong PC with a graphics card; on a small mini-PC use Gemini.
+  ollama:
+    image: ollama/ollama:0.40.6
+    container_name: ollama
+    profiles: [local-ai]
+    network_mode: host # API on :11434
+    restart: unless-stopped
+    volumes:
+      - ./ollama-data:/root/.ollama

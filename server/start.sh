@@ -1,15 +1,21 @@
 #!/bin/sh
-# Starts the HomeSystem server (Home Assistant + go2rtc) on a Linux PC with Docker.
+# Starts the HomeSystem server on a Linux PC with Docker:
+# Home Assistant + Frigate (cameras, AI) + MQTT, and the extras chosen in .env.
 set -e
 cd "$(dirname "$0")"
 
 command -v docker >/dev/null || { echo "Docker is missing. Install it: https://docs.docker.com/engine/install/"; exit 1; }
 
-# Camera passwords live only in this private copy, never in git.
-if [ ! -f go2rtc.private.yaml ]; then
-  cp go2rtc.yaml go2rtc.private.yaml
-  echo "Created go2rtc.private.yaml — put your camera's address and password in it, then run ./start.sh again."
+# Secrets live only in .env, never in git.
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "Created server/.env — fill in the camera login (and the AI key), then run ./start.sh again."
+  exit 0
 fi
+
+# Frigate's own copy of the camera config; edit frigate-config/config.yml.
+mkdir -p frigate-config mosquitto-data rclone-config
+[ -f frigate-config/config.yml ] || cp frigate/config.yml frigate-config/config.yml
 
 # The HomeSystem app, served by Home Assistant itself.
 if [ ! -f ../app/dist/index.html ]; then
@@ -17,20 +23,22 @@ if [ ! -f ../app/dist/index.html ]; then
     (cd ../app && npm ci && npm run build)
   else
     mkdir -p ../app/dist
-    echo "Node.js is missing, so the HomeSystem app is not built. HA still works; install Node 22 and run ./start.sh again to add the app."
+    echo "Node.js is missing, so the HomeSystem app is not built. Install Node 22 and run ./start.sh again to add it."
   fi
 fi
 
-# First start: switch on the automations package.
+# After HA's first start: switch on the automations package.
 if [ -f ha-config/configuration.yaml ] && ! grep -q "packages: !include_dir_named packages" ha-config/configuration.yaml; then
   printf '\nhomeassistant:\n  packages: !include_dir_named packages\n' >> ha-config/configuration.yaml
-  echo "Turned on the HomeSystem automations package."
+  echo "Turned on the HomeSystem automations package. Restart HA once: docker restart homeassistant"
 fi
 
 docker compose up -d
 
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+ip=${ip:-<this-pc-ip>}
 echo
-echo "Home Assistant:  http://${ip:-<this-pc-ip>}:8123   (first start takes a few minutes)"
-echo "HomeSystem app:  http://${ip:-<this-pc-ip>}:8123/local/homesystem/index.html"
-echo "Camera streams:  http://${ip:-<this-pc-ip>}:1984"
+echo "Home Assistant:  http://$ip:8123   (first start takes a few minutes)"
+echo "HomeSystem app:  http://$ip:8123/local/homesystem/index.html"
+echo "Frigate:         https://$ip:8971   (first password: docker logs frigate 2>&1 | grep -i password)"
+echo "Live video:      http://$ip:1984"

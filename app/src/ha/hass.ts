@@ -6,7 +6,11 @@ import {
   subscribeEntities,
   type Connection,
 } from "home-assistant-js-websocket";
+import { toCamEvents, type FrigateEvent } from "../lib/events";
 import type { ConnectionStatus, Entities, Entity, HomeBackend, Rooms, Settings } from "./types";
+
+/** The Frigate integration's instance id: its MQTT client id, "frigate" unless changed. */
+const FRIGATE_INSTANCE = "frigate";
 
 interface AreaEntry {
   area_id: string;
@@ -48,6 +52,17 @@ export function createHassBackend(settings: Settings): HomeBackend {
   const base = settings.hassUrl.replace(/\/+$/, "");
   let conn: Connection | null = null;
   let closed = false;
+  // Signed links work in <img>/<video> without the token. Cached so pictures don't reload.
+  const signed = new Map<string, { url: string; until: number }>();
+
+  async function sign(c: Connection, path: string): Promise<string> {
+    const hit = signed.get(path);
+    if (hit && hit.until > Date.now()) return hit.url;
+    const r = await c.sendMessagePromise<{ path: string }>({ type: "auth/sign_path", path, expires: 3600 });
+    const url = base + r.path;
+    signed.set(path, { url, until: Date.now() + 50 * 60 * 1000 });
+    return url;
+  }
 
   return {
     subscribe(onEntities, onStatus, onRooms) {
@@ -85,6 +100,23 @@ export function createHassBackend(settings: Settings): HomeBackend {
       // entity_picture already carries a short-lived access token from HA.
       const pic = camera.attributes.entity_picture;
       return pic ? `${base}${pic}&t=${Date.now()}` : null;
+    },
+
+    async events(limit) {
+      const c = conn;
+      if (!c) return null;
+      let list: FrigateEvent[];
+      try {
+        // The Frigate integration answers with Frigate's own JSON, as a string.
+        const raw = await c.sendMessagePromise<string>({ type: "frigate/events/get", instance_id: FRIGATE_INSTANCE, limit });
+        list = typeof raw === "string" ? JSON.parse(raw) : raw;
+      } catch {
+        return null; // no Frigate integration (yet)
+      }
+      const paths = new Map<string, string>();
+      toCamEvents(list, (p) => (paths.set(p, p), p));
+      await Promise.all([...paths.keys()].map(async (p) => paths.set(p, await sign(c, p))));
+      return toCamEvents(list, (p) => paths.get(p) ?? base + p);
     },
 
     close() {

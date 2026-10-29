@@ -9,6 +9,10 @@
 #      (HA → Settings → Devices & services → Entities).
 #   4. Developer tools → YAML → Check configuration → Restart.
 #
+# Needs (install what you use; automations for missing devices simply never run):
+#   HA Companion app (notify), Alarmo (alarm), Frigate integration + MQTT (cameras, AI),
+#   an AI Task provider such as Google Gemini (AI descriptions), NUT (UPS).
+#
 # Style rules used here (community best practice):
 #   - Built-in triggers and conditions, not templates, wherever possible. Templates fail silently.
 #   - Every automation has an id, so it can be edited in the HA UI later.
@@ -33,19 +37,36 @@ automation:
         to: triggered
     actions:
       - action: light.turn_on
+        continue_on_error: true
         target:
           entity_id: all
         data:
           brightness_pct: 100
+      - action: siren.turn_on
+        continue_on_error: true
+        target:
+          entity_id: siren.hallway_siren # CHANGE ME (Zigbee siren)
       - action: notify.mobile_app_my_phone # CHANGE ME (HA Companion app on the phone)
         data:
           title: "🚨 Alarm!"
           message: "The alarm went off at {{ now().strftime('%H:%M') }}."
           data:
-            image: /api/camera_proxy/camera.front_door # CHANGE ME — needs login, unlike /local files
+            image: /api/camera_proxy/camera.yard # CHANGE ME — needs login, unlike /local files
             ttl: 0
             priority: high
             channel: alarm_stream
+
+  - id: homesystem_alarm_off_siren_off
+    alias: "Alarm off → siren off"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: alarm_control_panel.alarmo # CHANGE ME
+        to: disarmed
+    actions:
+      - action: siren.turn_off
+        target:
+          entity_id: siren.hallway_siren # CHANGE ME
 
   - id: homesystem_water_leak
     alias: "Water leak → phone alert"
@@ -63,27 +84,98 @@ automation:
             ttl: 0
             priority: high
 
-  - id: homesystem_person_while_away
-    alias: "Camera sees someone while away → photo"
-    description: The camera detects a person while the alarm is armed away.
+  - id: homesystem_camera_ai_alert
+    alias: "Camera alert while armed → AI description + photo"
+    description: >
+      Frigate sees a person (or a car outside) while the alarm is on. AI looks at the camera
+      and writes one sentence ("A courier is leaving a parcel"). Without AI, a plain text is sent.
     mode: single
     max_exceeded: silent
     triggers:
-      - trigger: state
-        entity_id: binary_sensor.front_door_person # CHANGE ME (Reolink/Frigate person sensor)
-        to: "on"
+      - trigger: mqtt
+        topic: frigate/reviews
     conditions:
-      - condition: state
-        entity_id: alarm_control_panel.alarmo # CHANGE ME
-        state: armed_away
+      - condition: template
+        value_template: >
+          {{ trigger.payload_json.type == 'new' and trigger.payload_json.after.severity == 'alert' }}
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: alarm_control_panel.alarmo # CHANGE ME
+            state: disarmed
     actions:
+      - variables:
+          review: "{{ trigger.payload_json.after }}"
+          camera: "{{ review.camera }}"
+          event_id: "{{ review.data.detections[0] }}"
+          what: "{{ review.data.objects | join(', ') }}"
+      - action: ai_task.generate_data
+        continue_on_error: true # no AI set up yet → plain message below
+        data:
+          task_name: camera alert
+          instructions: >
+            You watch a home security camera. In one short sentence, say what the {{ what }}
+            is doing. Say if it looks like a delivery, a neighbour or a stranger.
+            Never guess who a person is. No intro.
+          attachments:
+            - media_content_id: "media-source://camera/camera.{{ camera }}"
+              media_content_type: image/jpeg
+        response_variable: ai
       - action: notify.mobile_app_my_phone # CHANGE ME
         data:
-          title: "Someone at the front door"
-          message: "Seen at {{ now().strftime('%H:%M') }} while you are away."
+          title: "{{ what | capitalize }} · {{ camera | replace('_', ' ') | title }}"
+          message: >
+            {{ ai.data if ai is defined and ai.data else 'Seen at ' ~ now().strftime('%H:%M') ~ ' while the alarm is on.' }}
           data:
-            image: /api/camera_proxy/camera.front_door # CHANGE ME — needs login, unlike /local files
-      - delay: "00:02:00" # no more than one alert every 2 minutes
+            image: "/api/frigate/notifications/{{ event_id }}/snapshot.jpg"
+            clickAction: /local/homesystem/index.html
+            tag: "{{ camera }}"
+            priority: high
+            ttl: 0
+      - delay: "00:01:00" # at most one alert a minute
+
+  - id: homesystem_alert_clip_to_cloud
+    alias: "Alert → save the clip for cloud backup"
+    description: >
+      When an alert ends, Frigate exports its video (10 s before to 10 s after).
+      The cloud-backup service then moves it to Google Drive / Dropbox / Yandex Disk.
+    mode: queued
+    triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+    conditions:
+      - condition: template
+        value_template: >
+          {{ trigger.payload_json.type == 'end' and trigger.payload_json.after.severity == 'alert' }}
+    actions:
+      - action: rest_command.homesystem_frigate_export
+        data:
+          camera: "{{ trigger.payload_json.after.camera }}"
+          start: "{{ (trigger.payload_json.after.start_time - 10) | int }}"
+          end: "{{ (trigger.payload_json.after.end_time + 10) | int }}"
+          name: "{{ trigger.payload_json.after.camera }} {{ now().strftime('%Y-%m-%d %H-%M') }}"
+
+  - id: homesystem_indoor_cameras_privacy
+    alias: "Indoor cameras record only when the alarm is on"
+    description: Privacy at home. The outdoor camera always records.
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: alarm_control_panel.alarmo # CHANGE ME
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.to_state.state in ['disarmed', 'armed_away', 'armed_home', 'armed_night'] }}"
+    actions:
+      - action: "switch.turn_{{ 'off' if trigger.to_state.state == 'disarmed' else 'on' }}"
+        continue_on_error: true
+        target:
+          entity_id: # Frigate creates these for every camera
+            - switch.living_room_detect
+            - switch.living_room_recordings
+            - switch.hallway_detect
+            - switch.hallway_recordings
+            - switch.bedroom_detect
+            - switch.bedroom_recordings
 
   # ---------- Energy ----------
 
@@ -142,6 +234,27 @@ automation:
         data:
           message: "Everyone left. Lights and TV are off. Open HomeSystem to arm the alarm."
 
+  - id: homesystem_power_cut
+    alias: "Power cut → phone alert (UPS)"
+    description: The UPS keeps the server, router and cameras running. NUT integration.
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: sensor.ups_status # CHANGE ME (NUT integration)
+    conditions:
+      - condition: template
+        value_template: >
+          {{ ('On Battery' in trigger.to_state.state) != ('On Battery' in trigger.from_state.state) }}
+    actions:
+      - action: notify.mobile_app_my_phone # CHANGE ME
+        data:
+          title: "{{ '⚡ Power cut' if 'On Battery' in trigger.to_state.state else '⚡ Power is back' }}"
+          message: >
+            UPS battery {{ states('sensor.ups_battery_charge') }}%. {# CHANGE ME #}
+            {{ 'The server, router and cameras run on the battery.' if 'On Battery' in trigger.to_state.state else 'All normal.' }}
+          data:
+            priority: high
+
   # ---------- Comfort ----------
 
   - id: homesystem_hallway_motion_light
@@ -174,6 +287,64 @@ automation:
         target:
           entity_id: light.hallway # CHANGE ME
 
+  - id: homesystem_evening_lamp_plug
+    alias: "Lamp on a smart plug: on at sunset, off at 23:30"
+    mode: single
+    triggers:
+      - trigger: sun
+        event: sunset
+        id: "on"
+      - trigger: time
+        at: "23:30:00"
+        id: "off"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.homesystem_guest_mode
+        state: "off"
+    actions:
+      - action: "switch.turn_{{ trigger.id }}"
+        target:
+          entity_id: switch.living_room_lamp_plug # CHANGE ME (Tapo P110)
+
+  # ---------- AI ----------
+
+  - id: homesystem_evening_ai_report
+    alias: "Evening AI report: what to check before bed"
+    description: >
+      At 21:30 the AI reads the home's state and sends 2–3 short tips
+      (windows open, lights left on, low batteries, big power users).
+    mode: single
+    triggers:
+      - trigger: time
+        at: "21:30:00"
+    actions:
+      - variables:
+          facts: >
+            {% set ns = namespace(power=[]) %}
+            {% for s in states.sensor if s.attributes.device_class == 'power' and s.state | is_number and s.state | float > 100 %}
+              {% set ns.power = ns.power + [s.name ~ ' ' ~ s.state | float | round(0) ~ ' W'] %}
+            {% endfor %}
+            Alarm: {{ states('alarm_control_panel.alarmo') }}.
+            Lights on: {{ states.light | selectattr('state', 'eq', 'on') | map(attribute='name') | join(', ') or 'none' }}.
+            Open doors/windows: {{ states.binary_sensor | selectattr('attributes.device_class', 'defined')
+              | selectattr('attributes.device_class', 'in', ['door', 'window', 'garage_door', 'opening'])
+              | selectattr('state', 'eq', 'on') | map(attribute='name') | join(', ') or 'none' }}.
+            Unlocked: {{ states.lock | selectattr('state', 'eq', 'unlocked') | map(attribute='name') | join(', ') or 'none' }}.
+            Using over 100 W: {{ ns.power | join(', ') or 'nothing' }}.
+            Offline devices: {{ states | selectattr('state', 'eq', 'unavailable') | map(attribute='name') | list | count }}.
+      - action: ai_task.generate_data
+        data:
+          task_name: evening report
+          instructions: >
+            You are a calm home assistant. From these facts, write at most 3 short tips for the
+            night, most important first (security, then energy). If all is fine, say so in one line.
+            Facts: {{ facts }}
+        response_variable: ai
+      - action: notify.mobile_app_my_phone # CHANGE ME
+        data:
+          title: "🌙 Home before bed"
+          message: "{{ ai.data }}"
+
   # ---------- Maintenance ----------
 
   - id: homesystem_low_battery_report
@@ -202,3 +373,11 @@ automation:
         data:
           title: "🔋 Batteries to change"
           message: "{{ low | join(', ') }}"
+
+# Frigate API on this server. Docker: 127.0.0.1:5000. HA OS add-on: http://ccab4aaf-frigate:5000
+rest_command:
+  homesystem_frigate_export:
+    url: "http://127.0.0.1:5000/api/export/{{ camera }}/start/{{ start }}/end/{{ end }}" # CHANGE ME on HA OS
+    method: post
+    content_type: application/json
+    payload: '{"playback": "realtime", "name": "{{ name }}"}'

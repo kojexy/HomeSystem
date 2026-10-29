@@ -1,6 +1,7 @@
 import { AlarmPanel } from "../components/AlarmPanel";
 import { CameraCard } from "../components/CameraCard";
 import { EntityTile } from "../components/EntityTile";
+import { EventsFeed } from "../components/EventsFeed";
 import { Icon, type IconName } from "../components/Icon";
 import { stateText } from "../lib/domains";
 import { alarmLabel, alarmOf, devices, insights, isOnNow, name, ofDomain, planMode, summarize, topConsumers, type Mode } from "../lib/home";
@@ -74,6 +75,7 @@ export function HomeView({ ctx }: { ctx: HomeCtx }) {
       <div className="home-grid">
         <CameraCard camera={ofDomain(entities, "camera")[0] ?? null} ctx={ctx} />
         <AlarmPanel alarm={alarm} ctx={ctx} />
+        <EventsFeed ctx={ctx} limit={20} compact />
 
         <section className="card">
           <h2>On now</h2>

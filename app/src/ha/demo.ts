@@ -1,4 +1,4 @@
-import type { Entities, Entity, HomeBackend, Rooms } from "./types";
+import type { CamEvent, Entities, Entity, HomeBackend, Rooms } from "./types";
 
 // A pretend home so the app can be designed and tested before any hardware arrives.
 
@@ -157,10 +157,58 @@ export function demoCameraFrame(camera: Entity): string {
     <rect width="640" height="360" fill="url(#v)"/>
     <text x="620" y="340" text-anchor="end" font-family="monospace" font-size="16" fill="#e8eef4" opacity=".8">${time}</text>
   </svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  return svgUrl(svg);
+}
+
+const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+/** A small drawn picture of what the camera saw, with Frigate's box around it. */
+function eventPicture(label: string, garden: boolean): string {
+  const figure =
+    label === "person"
+      ? `<circle cx="320" cy="120" r="26" fill="#9aa7b4"/><rect x="290" y="150" width="60" height="120" rx="22" fill="#4a6a8a"/><rect x="345" y="210" width="40" height="34" rx="4" fill="#b08a5a"/>`
+      : label === "cat"
+        ? `<ellipse cx="320" cy="250" rx="46" ry="22" fill="#d08a3c"/><circle cx="366" cy="226" r="17" fill="#d08a3c"/><path d="M356 212l4-14 8 12M372 212l6-12 4 14" fill="#d08a3c"/>`
+        : `<rect x="210" y="190" width="220" height="60" rx="18" fill="#6c7f94"/><rect x="250" y="160" width="130" height="44" rx="14" fill="#56687c"/><circle cx="260" cy="252" r="18" fill="#1b1f26"/><circle cx="380" cy="252" r="18" fill="#1b1f26"/>`;
+  const box = label === "person" ? [272, 84, 128, 196] : label === "cat" ? [262, 196, 140, 84] : [196, 146, 248, 130];
+  return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+    <rect width="640" height="360" fill="${garden ? "#16202a" : "#1b1f26"}"/>
+    <rect y="${garden ? 250 : 270}" width="640" height="${garden ? 110 : 90}" fill="${garden ? "#1d3324" : "#2a2d33"}"/>
+    ${garden ? "" : `<rect x="430" y="70" width="140" height="200" fill="#3a3027"/>`}${figure}
+    <rect x="${box[0]}" y="${box[1]}" width="${box[2]}" height="${box[3]}" fill="none" stroke="#5ce1e6" stroke-width="4" rx="6"/>
+  </svg>`);
+}
+
+/** What a day of Frigate + AI looks like, relative to now. */
+export function demoEvents(nowMs = Date.now()): CamEvent[] {
+  const t = nowMs / 1000;
+  const list: [string, string, string, string | null, number, number, string | null][] = [
+    ["d1", "front_door", "person", null, 4, 0.91, "A courier in a blue jacket leaves a parcel by the door and walks away."],
+    ["d2", "garden", "cat", null, 38, 0.82, "An orange cat crosses the lawn and sits under the bench."],
+    ["d3", "front_door", "person", "Anna", 95, 0.88, "Anna comes home with shopping bags and unlocks the door."],
+    ["d4", "garden", "car", null, 190, 0.86, "A grey car parks in the driveway; nobody gets out yet."],
+    ["d5", "front_door", "person", null, 600, 0.77, null],
+  ];
+  return list.map(([id, camera, label, subLabel, minAgo, score, description]) => {
+    const pic = eventPicture(label, camera === "garden");
+    return {
+      id,
+      camera,
+      label,
+      subLabel,
+      start: t - minAgo * 60,
+      end: t - minAgo * 60 + 25,
+      score,
+      description,
+      thumbUrl: pic,
+      snapshotUrl: pic,
+      clipUrl: null,
+    };
+  });
 }
 
 export function createDemoBackend(): HomeBackend {
+  const events = demoEvents();
   let state = demoEntities();
   let listener: ((e: Entities) => void) | null = null;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -195,6 +243,10 @@ export function createDemoBackend(): HomeBackend {
 
     snapshotUrl(camera) {
       return demoCameraFrame(camera);
+    },
+
+    async events(limit) {
+      return events.slice(0, limit);
     },
 
     close() {

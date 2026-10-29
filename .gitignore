@@ -6,4 +6,11 @@ dist/
 
 # Server private data
 server/ha-config/
-server/go2rtc.private.yaml
+server/.env
+server/frigate-config/
+server/recordings/
+server/mosquitto-data/
+server/rclone-config/
+server/ollama-data/
+apk/
+!server/.env.example

@@ -18,7 +18,7 @@ Collected from the Home Assistant community, 29 Oct 2026. Short rules, then wher
 - Use `for:` on triggers ("window open for 2 minutes") to ignore short blips.
 - Keep **safety** (alarm, leaks, smoke) separate from **comfort** (lights, music). A "guest mode" switch pauses comfort only.
 
-→ All seven ready-made automations follow these rules. The battery report is the one place a template is needed.
+→ All ready-made automations follow these rules. The battery report is the one place a template is needed.
 
 ## 3. Dashboard design
 
@@ -35,7 +35,7 @@ Collected from the Home Assistant community, 29 Oct 2026. Short rules, then wher
 - Arm/disarm with a **code** (Alarmo supports it). The app never stores the code.
 - Ask before risky actions: the app asks "Unlock front door?" before unlocking.
 - The one-tap "Leave home" mode never switches off plugs — one may be the fridge or the router.
-- Camera passwords live only in go2rtc/HA config, never in Git.
+- Camera passwords and AI keys live only in `server/.env` or the add-on config, never in Git.
 - One long-lived token per device, named ("Phone", "PC"), so you can revoke one without the others.
 
 ## 5. Energy
@@ -44,6 +44,16 @@ Collected from the Home Assistant community, 29 Oct 2026. Short rules, then wher
 - Pause heating or cooling when a window is open (ready-made automation).
 - Turn off what is forgotten when everyone leaves (ready-made automation).
 - The app's "Using power now" card and the "High power" note show the biggest users live.
+
+## 6. Cameras and AI
+
+- **Detect on the small stream, record the big one.** Frigate's AI looks at 640×360 at 5 fps; recordings keep full quality. This is what lets a small mini-PC run 4 cameras.
+- **Alerts vs detections.** Only a person (or a car outside) is an *alert* that reaches the phone. Cats and passing cars stay quiet *detections* you can browse.
+- **Masks and zones** stop most false alarms: mask trees and the street, alert only in the driveway or at the door.
+- **Indoor privacy.** Indoor cameras record only while the alarm is armed (ready-made automation).
+- **AI where it helps.** Detection runs at home. Language AI (Gemini, or Ollama at home) only writes a sentence about an alert — it never decides whether the alarm goes off.
+- **Never let the AI guess who someone is.** Prompts say so. Names come only from face recognition you trained.
+- **Copy-only cloud.** Event photos and alert clips are copied out every few minutes, so a stolen server still leaves evidence, and deleting at home never deletes the cloud copy.
 
 ## Sources
 
@@ -54,3 +64,7 @@ Collected from the Home Assistant community, 29 Oct 2026. Short rules, then wher
 - [Hemma dashboard](https://github.com/willsanderson/Hemma) — separate mobile layout, Apple Home style
 - [How to create a dashboard that looks good (LazyAdmin)](https://lazyadmin.nl/smart-home/home-assistant-dashboard/)
 - [HA 2026.6 beta: dashboard redesign](https://www.smarthomejunkie.net/home-assistant-2026-6-beta-dashboard-redesign-smarter-automations-and-ir-remotes-that-finally-listen/)
+- [Frigate: Generative AI](https://docs.frigate.video/configuration/genai/genai_config) and [review summaries](https://docs.frigate.video/configuration/genai/genai_review)
+- [Frigate: camera-specific setup and restreaming](https://docs.frigate.video/configuration/camera_specific)
+- [Home Assistant AI Task: generate data](https://www.home-assistant.io/actions/ai_task.generate_data/)
+- [Frigate Home Assistant integration](https://github.com/blakeblackshear/frigate-hass-integration) — events API and notification links used by the app
