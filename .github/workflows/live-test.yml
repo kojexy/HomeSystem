@@ -24,7 +24,7 @@ jobs:
           docker run -d --name camera --network host \
             -v $PWD/.github/ci/live-ha/mediamtx.yml:/mediamtx.yml:ro bluenviron/mediamtx:1.21.2-ffmpeg
           image=$(grep -oE 'ghcr.io/home-assistant/home-assistant:[^ ]+' server/docker-compose.yml)
-          mkdir -p /tmp/ha && cp .github/ci/live-ha/configuration.yaml /tmp/ha/
+          mkdir -p /tmp/ha && cp .github/ci/live-ha/configuration.yaml /tmp/ha/ && echo "[]" > /tmp/ha/automations.yaml
           docker run -d --name ha --network host -v /tmp/ha:/config "$image"
           for i in $(seq 1 90); do curl -sf http://localhost:8123/api/onboarding >/dev/null && break; sleep 2; done
           curl -sf http://localhost:8123/api/onboarding

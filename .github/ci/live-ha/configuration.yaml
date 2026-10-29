@@ -2,3 +2,5 @@
 # (lights, locks, alarm with code 1234, cameras, climate, covers, media, vacuum…).
 default_config:
 demo:
+# Where automations made in the app are saved (a normal HA install has this line too).
+automation: !include automations.yaml

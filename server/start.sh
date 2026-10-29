@@ -27,6 +27,13 @@ if [ ! -f ../app/dist/index.html ]; then
   fi
 fi
 
+# Automations made in the app are saved to automations.yaml; HA's default config loads it. Make sure.
+if [ -f ha-config/configuration.yaml ] && ! grep -q "automations.yaml" ha-config/configuration.yaml; then
+  [ -f ha-config/automations.yaml ] || echo "[]" > ha-config/automations.yaml
+  printf '\nautomation ui: !include automations.yaml\n' >> ha-config/configuration.yaml
+  echo "Turned on automations made in the app. Restart HA once: docker restart homeassistant"
+fi
+
 # After HA's first start: switch on the automations package.
 if [ -f ha-config/configuration.yaml ] && ! grep -q "packages: !include_dir_named packages" ha-config/configuration.yaml; then
   printf '\nhomeassistant:\n  packages: !include_dir_named packages\n' >> ha-config/configuration.yaml
