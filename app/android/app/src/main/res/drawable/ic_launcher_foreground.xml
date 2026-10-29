@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The HomeSystem house (same shape as public/icon.svg), sized for the adaptive-icon safe zone. -->
+<!-- The HomeSystem icon (public/icon.svg): a house with a camera lens. Sized for the adaptive-icon safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <group android:scaleX="0.1667" android:scaleY="0.1667" android:translateX="11.33" android:translateY="11.33">
-        <path android:pathData="M256,112 L112,232 V400 H216 V296 H296 V400 H400 V232 Z"
-            android:strokeColor="#5CE1E6" android:strokeWidth="28" android:strokeLineJoin="round" />
+    <group android:scaleX="0.17" android:scaleY="0.17" android:translateX="10.48" android:translateY="10.82">
+        <path android:pathData="M104,238 L256,112 L408,238" android:strokeColor="#7FEDF1" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path android:pathData="M146,216 V362 A34,34 0 0 0 180,396 H332 A34,34 0 0 0 366,362 V216" android:strokeColor="#5CDDE4" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path android:pathData="M198,292 A58,58 0 1 0 314,292 A58,58 0 1 0 198,292 Z" android:fillColor="#071019" android:strokeColor="#6FE6EB" android:strokeWidth="22" />
+        <path android:pathData="M232,292 A24,24 0 1 0 280,292 A24,24 0 1 0 232,292 Z" android:fillColor="#FFB347" />
+        <path android:pathData="M239,282 A7,7 0 1 0 253,282 A7,7 0 1 0 239,282 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.85" />
     </group>
 </vector>
