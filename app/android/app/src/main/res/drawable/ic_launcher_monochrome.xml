@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One-colour shape of the HomeSystem icon (public/icon.svg) for Android's themed icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.18" android:scaleY="0.18" android:translateX="7.92" android:translateY="7.02">
+        <path android:pathData="M140,236 L256,140 L372,236 V362 A20,20 0 0 1 352,382 H160 A20,20 0 0 1 140,362 Z" android:strokeColor="#FFFFFF" android:strokeWidth="22" android:strokeLineJoin="round" />
+        <path android:pathData="M212,282 A44,44 0 1 0 300,282 A44,44 0 1 0 212,282 Z" android:strokeColor="#FFFFFF" android:strokeWidth="10" />
+        <path android:pathData="M240,282 A16,16 0 1 0 272,282 A16,16 0 1 0 240,282 Z" android:fillColor="#FFFFFF" />
+    </group>
+</vector>
