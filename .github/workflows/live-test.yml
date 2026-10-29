@@ -1,0 +1,74 @@
+# Tests the app against a real Home Assistant (same version as the server kit),
+# filled with HA's demo devices, and saves phone screenshots of the app connected to it.
+name: Live test with Home Assistant
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/src/**", "app/scripts/**", ".github/ci/live-ha/**", ".github/workflows/live-test.yml", "server/docker-compose.yml"]
+  workflow_dispatch:
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Start Home Assistant
+        run: |
+          image=$(grep -oE 'ghcr.io/home-assistant/home-assistant:[^ ]+' server/docker-compose.yml)
+          mkdir -p /tmp/ha && cp .github/ci/live-ha/configuration.yaml /tmp/ha/
+          docker run -d --name ha -p 8123:8123 -v /tmp/ha:/config "$image"
+          for i in $(seq 1 90); do curl -sf http://localhost:8123/api/onboarding >/dev/null && break; sleep 2; done
+          curl -sf http://localhost:8123/api/onboarding
+
+      - name: Create a test user and token (throwaway instance)
+        run: |
+          client=http://localhost:8123/
+          password=$(openssl rand -hex 16)
+          code=$(curl -sf -X POST http://localhost:8123/api/onboarding/users -H 'Content-Type: application/json' \
+            -d "{\"client_id\":\"$client\",\"name\":\"CI\",\"username\":\"ci\",\"password\":\"$password\",\"language\":\"en\"}" | jq -r .auth_code)
+          token=$(curl -sf -X POST http://localhost:8123/auth/token \
+            -d "grant_type=authorization_code&code=$code&client_id=$client" | jq -r .access_token)
+          echo "::add-mask::$token"
+          echo "HA_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "HA_URL=http://localhost:8123" >> "$GITHUB_ENV"
+          # Wait until the demo devices are there.
+          for i in $(seq 1 60); do
+            n=$(curl -sf -H "Authorization: Bearer $token" http://localhost:8123/api/states | jq length)
+            [ "${n:-0}" -gt 50 ] && break; sleep 2
+          done
+          echo "Home Assistant has $n entities"
+
+      - name: Live tests
+        working-directory: app
+        run: |
+          npm ci
+          npx vitest run src/live.test.ts --reporter verbose
+
+      - name: Screenshots of the app connected to Home Assistant
+        working-directory: app
+        run: |
+          npm run build
+          npx vite preview --port 4173 --strictPort &
+          npm install --no-save playwright@1.64.1
+          npx playwright install --with-deps chromium
+          for i in $(seq 1 30); do curl -sf http://localhost:4173 >/dev/null && break; sleep 1; done
+          mkdir -p screenshots
+          APP_URL=http://localhost:4173 OUT=screenshots node scripts/screenshot-live.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-screenshots
+          path: app/screenshots/
+          if-no-files-found: ignore
+
+      - name: Home Assistant log (on failure)
+        if: failure()
+        run: docker logs ha 2>&1 | tail -80

@@ -1,0 +1,4 @@
+# Throwaway Home Assistant for the live test: HA's own demo devices
+# (lights, locks, alarm with code 1234, cameras, climate, covers, media, vacuum…).
+default_config:
+demo:

@@ -27,15 +27,22 @@ export function useHome(settings: Settings) {
     };
   }, [backend]);
 
-  /** Runs service calls one after another; the first failure is shown to the user. */
+  /**
+   * Runs service calls one after another. One failure (a jammed lock, say) does not stop
+   * the rest, so "Leave home" still turns off the lights; the first error is shown.
+   */
   const run = useCallback(
     async (...calls: ServiceCall[]) => {
       setError(null);
-      try {
-        for (const c of calls) await backend.callService(c.domain, c.service, c.data);
-      } catch (e) {
-        setError((e as Error).message);
+      let first: string | null = null;
+      for (const c of calls) {
+        try {
+          await backend.callService(c.domain, c.service, c.data);
+        } catch (e) {
+          first ??= (e as Error).message;
+        }
       }
+      if (first) setError(first);
     },
     [backend]
   );
