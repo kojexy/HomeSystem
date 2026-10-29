@@ -6,6 +6,19 @@ const { APP_URL, HA_URL, HA_TOKEN, OUT = "screenshots" } = process.env;
 const settings = { mode: "live", hassUrl: HA_URL, token: HA_TOKEN, go2rtcUrl: "" };
 
 // Google Chrome (not plain Chromium) so H.264 camera video can play.
+/** True when the video shows a real picture (not black): draws the current frame and measures it. */
+const framePixels = (v) => {
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 36;
+  const g = c.getContext("2d");
+  g.drawImage(v, 0, 0, 64, 36);
+  const d = g.getImageData(0, 0, 64, 36).data;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1] + d[i + 2];
+  return sum / (d.length / 4) / 3; // average brightness 0–255
+};
+
 const browser = await chromium.launch({ channel: "chrome" });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 const errors = [];
@@ -33,8 +46,10 @@ if (process.env.HA_STREAM_CAMERA) {
   await video.waitFor({ timeout: 20000 });
   await page.waitForFunction((v) => v.currentTime > 1 && v.readyState >= 2, await video.elementHandle(), { timeout: 45000 });
   await card.scrollIntoViewIfNeeded();
+  const brightness = await video.evaluate(framePixels);
+  if (brightness < 20) errors.push(`phone: live video frame is black (${brightness.toFixed(0)})`);
   await page.screenshot({ path: `${OUT}/live-video.png` });
-  console.log("Live video plays in the app.");
+  console.log(`Live video plays in the app (picture brightness ${brightness.toFixed(0)}).`);
 }
 
 const width = await page.evaluate(() => document.documentElement.scrollWidth);
@@ -59,8 +74,10 @@ if (process.env.HA_STREAM_CAMERA) {
   const card = pc.locator(".card.camera").filter({ has: pc.locator(".cam-name", { hasText: state.attributes.friendly_name }) }).first();
   await card.getByRole("button", { name: "Go live" }).click();
   await pc.waitForFunction((v) => v.currentTime > 1 && v.readyState >= 2, await card.locator("video").elementHandle({ timeout: 20000 }), { timeout: 45000 });
+  const pcBrightness = await card.locator("video").evaluate(framePixels);
+  if (pcBrightness < 20) errors.push(`PC: live video frame is black (${pcBrightness.toFixed(0)})`);
   await pc.screenshot({ path: `${OUT}/pc-cameras-live.png` });
-  console.log("PC: live video plays.");
+  console.log(`PC: live video plays (picture brightness ${pcBrightness.toFixed(0)}).`);
 }
 const pcWidth = await pc.evaluate(() => document.documentElement.scrollWidth);
 if (pcWidth > 1440) errors.push(`PC: page is wider than the window: ${pcWidth}px`);
