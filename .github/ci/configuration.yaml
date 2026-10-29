@@ -1,0 +1,5 @@
+# Minimal Home Assistant config used only by CI to check server/packages.
+homeassistant:
+  name: HomeSystem CI
+  packages: !include_dir_named packages
+mqtt:

@@ -1,0 +1,40 @@
+# Checks the server kit with the real programs, since there is no server yet:
+# Home Assistant validates the automations package, Frigate validates its config,
+# Docker Compose validates the compose file.
+name: Server config check
+
+on:
+  push:
+    branches: [main]
+    paths: ["server/**", ".github/ci/**", ".github/workflows/server-check.yml"]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Docker Compose file
+        working-directory: server
+        run: |
+          cp .env.example .env
+          COMPOSE_PROFILES=cloud,local-ai docker compose config --quiet
+          sh -n start.sh && sh -n cloud/cloud-backup.sh
+
+      - name: Home Assistant automations package
+        run: |
+          mkdir -p /tmp/ha && cp .github/ci/configuration.yaml /tmp/ha/
+          cp -r server/packages /tmp/ha/packages
+          image=$(grep -oE 'ghcr.io/home-assistant/home-assistant:[^ ]+' server/docker-compose.yml)
+          docker run --rm -v /tmp/ha:/config "$image" \
+            python -m homeassistant --script check_config --config /config --info all | tee /tmp/ha-check.txt
+          ! grep -qiE "invalid config|error" /tmp/ha-check.txt
+
+      - name: Frigate config
+        run: |
+          mkdir -p /tmp/frigate && cp server/frigate/config.yml /tmp/frigate/config.yml
+          image=$(grep -oE 'ghcr.io/blakeblackshear/frigate:[^ ]+' server/docker-compose.yml)
+          docker run --rm --entrypoint python3 -v /tmp/frigate:/config \
+            -e FRIGATE_RTSP_USER=ci -e FRIGATE_RTSP_PASSWORD=ci \
+            "$image" -u -m frigate --validate-config
