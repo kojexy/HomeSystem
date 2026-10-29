@@ -6,6 +6,8 @@
 #  2. The camera login comes from .env: FRIGATE_RTSP_USER / FRIGATE_RTSP_PASSWORD.
 #  3. Camera names must match the HA camera entities (camera.yard → yard): the app finds live video by name.
 
+version: 0.18-0 # tells Frigate this file is already in its current format
+
 mqtt:
   host: 127.0.0.1 # HA OS: core-mosquitto, plus user/password of an HA user
 
